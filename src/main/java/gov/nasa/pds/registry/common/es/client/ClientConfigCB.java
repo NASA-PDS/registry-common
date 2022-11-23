@@ -5,7 +5,7 @@ import javax.net.ssl.SSLContext;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
@@ -16,7 +16,7 @@ import org.elasticsearch.client.RestClientBuilder;
 /**
  * Implementation of Elasticsearch client API's HTTP configuration callback.
  * This class is used to setup TLS/SSL and authentication.
- * 
+ *
  * @author karpenko
  */
 public class ClientConfigCB implements RestClientBuilder.HttpClientConfigCallback
@@ -24,7 +24,7 @@ public class ClientConfigCB implements RestClientBuilder.HttpClientConfigCallbac
     private boolean trustSelfSignedCert = false;
     private CredentialsProvider credProvider;
 
-    
+
     /**
      * Constructor
      */
@@ -32,17 +32,17 @@ public class ClientConfigCB implements RestClientBuilder.HttpClientConfigCallbac
     {
     }
 
-    
+
     /**
      * Set to true to trust self-signed certificates.
      * @param b Set to true to trust self-signed certificates.
      */
-    public void setTrustSelfSignedCert(boolean b)
+    public void setTrustEverything(boolean b)
     {
         this.trustSelfSignedCert = b;
     }
 
-    
+
     /**
      * Set user name and password for basic authentication.
      * @param user user name
@@ -51,12 +51,12 @@ public class ClientConfigCB implements RestClientBuilder.HttpClientConfigCallbac
     public void setUserPass(String user, String pass)
     {
         if(user == null || pass == null) return;
-        
+
         credProvider = new BasicCredentialsProvider();
         credProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(user, pass));
     }
-    
-    
+
+
     @Override
     public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder)
     {
@@ -64,14 +64,14 @@ public class ClientConfigCB implements RestClientBuilder.HttpClientConfigCallbac
         {
             if(trustSelfSignedCert)
             {
-                confTrustSelfSigned(httpClientBuilder);
+                confTrustEverything(httpClientBuilder);
             }
 
             if(credProvider != null)
             {
                 httpClientBuilder.setDefaultCredentialsProvider(credProvider);
             }
-            
+
             return httpClientBuilder;
         }
         catch(Exception ex)
@@ -80,14 +80,16 @@ public class ClientConfigCB implements RestClientBuilder.HttpClientConfigCallbac
         }
     }
 
-    
-    private void confTrustSelfSigned(HttpAsyncClientBuilder httpClientBuilder) throws Exception
+
+    private void confTrustEverything(HttpAsyncClientBuilder httpClientBuilder) throws Exception
     {
-        SSLContextBuilder sslBld = SSLContexts.custom(); 
-        sslBld.loadTrustMaterial(new TrustSelfSignedStrategy());
+        SSLContextBuilder sslBld = SSLContexts.custom();
+        sslBld.loadTrustMaterial(new TrustEverythingStrategy());
         SSLContext sslContext = sslBld.build();
 
-        httpClientBuilder.setSSLContext(sslContext);
+        httpClientBuilder.setSSLContext(sslContext)
+                .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
     }
-    
+
 }
+

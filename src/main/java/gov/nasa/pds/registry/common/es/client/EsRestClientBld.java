@@ -9,7 +9,7 @@ import gov.nasa.pds.registry.common.util.JavaProps;
 
 /**
  * Utility class to build Elasticsearch rest client.
- * 
+ *
  * @author karpenko
  */
 public class EsRestClientBld
@@ -17,8 +17,8 @@ public class EsRestClientBld
     private RestClientBuilder bld;
     private ClientConfigCB clientCB;
     private RequestConfigCB reqCB;
-    
-   
+
+
     /**
      * Constructor.
      * @param url Elasticsearch URL, e.g., "http://localhost:9200"
@@ -28,25 +28,25 @@ public class EsRestClientBld
     {
         HttpHost host = EsUtils.parseEsUrl(url);
         bld = RestClient.builder(host);
-        
+
         clientCB = new ClientConfigCB();
         reqCB = new RequestConfigCB();
     }
-    
-    
+
+
     /**
      * Build the Elasticsearch rest client
      * @return Elasticsearch rest client
      */
-    public RestClient build() 
+    public RestClient build()
     {
         bld.setHttpClientConfigCallback(clientCB);
         bld.setRequestConfigCallback(reqCB);
-        
+
         return bld.build();
     }
-    
-    
+
+
     /**
      * Configure authentication
      * @param props properties
@@ -57,11 +57,11 @@ public class EsRestClientBld
         if(props == null) return;
 
         // Trust self-signed certificates
-        if(Boolean.TRUE.equals(props.getBoolean(ClientConstants.AUTH_TRUST_SELF_SIGNED)))
-        {
-            clientCB.setTrustSelfSignedCert(true);
-        }
-        
+//        if(Boolean.TRUE.equals(props.getBoolean(ClientConstants.AUTH_TRUST_SELF_SIGNED)))
+//        {
+        clientCB.setTrustEverything(true);
+//        }
+
         // Basic authentication
         String user = props.getProperty("user");
         String pass = props.getProperty("password");
