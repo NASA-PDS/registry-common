@@ -111,7 +111,7 @@ public class HttpConnectionFactory
         // Trust self-signed certificates
         if(Boolean.TRUE.equals(props.getBoolean(ClientConstants.AUTH_TRUST_SELF_SIGNED)))
         {
-            SSLContext sslCtx = SSLUtils.createTrustAllContext();
+            SSLContext sslCtx = SSLUtils.createTrustAllContext(props);
             HttpsURLConnection.setDefaultSSLSocketFactory(sslCtx.getSocketFactory());
         }
         
