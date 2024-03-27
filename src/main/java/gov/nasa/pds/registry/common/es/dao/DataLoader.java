@@ -19,10 +19,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.gson.Gson;
-
-import gov.nasa.pds.registry.common.es.client.EsUtils;
-import gov.nasa.pds.registry.common.es.client.HttpConnectionFactory;
+import gov.nasa.pds.registry.common.ConnectionFactory;
 import gov.nasa.pds.registry.common.util.CloseUtils;
+import gov.nasa.pds.registry.common.util.SearchResponseParser;
 
 
 /**
@@ -41,22 +40,21 @@ public class DataLoader
     private int totalRecords;
 
     private Logger log;
-    private HttpConnectionFactory conFactory;
+    private ConnectionFactory conFactory;
 
 
     /**
      * Constructor
-     * @param esUrl Elasticsearch URL, e.g., "http://localhost:9200"
+     * @param esUrl Elasticsearch URL, e.g., "app:/connections/direct/localhost.xml"
      * @param indexName Elasticsearch index name
      * @param authConfigFile Elasticsearch authentication configuration file
      * (see Registry Manager documentation for more info)
      * @throws Exception an exception
      */
-    public DataLoader(String esUrl, String indexName, String authConfigFile) throws Exception
+    public DataLoader(ConnectionFactory conFactory) throws Exception
     {
         log = LogManager.getLogger(this.getClass());
-        conFactory = new HttpConnectionFactory(esUrl, indexName, "_bulk?refresh=wait_for");
-        conFactory.initAuth(authConfigFile);
+        this.conFactory = conFactory.setAPI("_bulk?refresh=wait_for");
     }
 
 
@@ -246,7 +244,7 @@ public class DataLoader
             if(json == null) throw ex;
 
             // Parse error JSON to extract reason.
-            String msg = EsUtils.extractReasonFromJson(json);
+            String msg = SearchResponseParser.extractReasonFromJson(json);
             if(msg == null) msg = json;
 
             throw new Exception(msg);
@@ -339,7 +337,7 @@ public class DataLoader
             if(json == null) throw ex;
 
             // Parse error JSON to extract reason.
-            String msg = EsUtils.extractReasonFromJson(json);
+            String msg = SearchResponseParser.extractReasonFromJson(json);
             if(msg == null) msg = json;
 
             throw new Exception(msg);

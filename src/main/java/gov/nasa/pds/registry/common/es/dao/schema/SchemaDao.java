@@ -2,13 +2,9 @@ package gov.nasa.pds.registry.common.es.dao.schema;
 
 import java.util.List;
 import java.util.Set;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
-
+import gov.nasa.pds.registry.common.Request;
+import gov.nasa.pds.registry.common.Response;
+import gov.nasa.pds.registry.common.RestClient;
 import gov.nasa.pds.registry.common.util.Tuple;
 
 
@@ -20,7 +16,6 @@ import gov.nasa.pds.registry.common.util.Tuple;
  */
 public class SchemaDao
 {
-    private Logger log;
     private RestClient client;
     private String indexName;
     
@@ -32,7 +27,6 @@ public class SchemaDao
      */
     public SchemaDao(RestClient client, String indexName)
     {
-        log = LogManager.getLogger(this.getClass());
         this.client = client;
         this.indexName = indexName;
     }
@@ -45,7 +39,7 @@ public class SchemaDao
      */
     public Set<String> getFieldNames() throws Exception
     {
-        Request req = new Request("GET", "/" + indexName + "/_mappings");
+        Request req = client.createRequest(Request.Method.GET, "/" + indexName + "/_mappings");
         Response resp = client.performRequest(req);
         
         MappingsParser parser = new MappingsParser(indexName);
@@ -65,7 +59,7 @@ public class SchemaDao
         SchemaRequestBuilder bld = new SchemaRequestBuilder();
         String json = bld.createUpdateSchemaRequest(fields);
         
-        Request req = new Request("PUT", "/" + indexName + "/_mapping");
+        Request req = client.createRequest(Request.Method.PUT, "/" + indexName + "/_mapping");
         req.setJsonEntity(json);
         client.performRequest(req);
     }

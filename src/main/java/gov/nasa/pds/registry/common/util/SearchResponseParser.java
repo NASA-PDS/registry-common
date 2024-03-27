@@ -1,13 +1,14 @@
-package gov.nasa.pds.registry.common.es.client;
+package gov.nasa.pds.registry.common.util;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
-
-import org.elasticsearch.client.Response;
+import java.util.List;
+import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
+import gov.nasa.pds.registry.common.Response;
 
 
 /**
@@ -172,4 +173,37 @@ public class SearchResponseParser
         cb.onRecord(lastId, src);
     }    
 
+    /**
+     * Extract error message from search response JSON.
+     * @param json response JSON
+     * @return error message
+     */
+    @SuppressWarnings("rawtypes")
+    public static String extractReasonFromJson(String json)
+    {
+        try
+        {
+            Gson gson = new Gson();
+            Object obj = gson.fromJson(json, Object.class);
+            
+            obj = ((Map)obj).get("error");
+            
+            Object rc = ((Map)obj).get("root_cause");
+            if(rc != null)
+            {
+                List list = (List)rc;
+                obj = ((Map)list.get(0)).get("reason");
+            }
+            else
+            {
+                obj = ((Map)obj).get("reason");
+            }
+            
+            return obj.toString();
+        }
+        catch(Exception ex)
+        {
+            return null;
+        }
+    }
 }

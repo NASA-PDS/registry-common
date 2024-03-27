@@ -1,4 +1,4 @@
-package gov.nasa.pds.registry.common.es.client;
+package gov.nasa.pds.registry.common.connection.es;
 
 
 import org.apache.http.client.config.RequestConfig;
@@ -11,7 +11,7 @@ import org.elasticsearch.client.RestClientBuilder;
  * 
  * @author karpenko
  */
-public class RequestConfigCB implements RestClientBuilder.RequestConfigCallback
+class RequestConfigCB implements RestClientBuilder.RequestConfigCallback
 {
     private int connectTimeoutSec = 5;
     private int socketTimeoutSec = 10;
