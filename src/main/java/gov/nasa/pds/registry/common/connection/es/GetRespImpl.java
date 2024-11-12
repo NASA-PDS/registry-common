@@ -153,10 +153,12 @@ class GetRespImpl implements Response.Get {
           continue;
         }
         if (stringForMissing) {
-          log.warn("Could not find datatype for field " + rec.id + ". Will use 'keyword'");
+          String sanitizedId = rec.id.replace("\n", "").replace("\r", "");
+          log.warn("Could not find datatype for field " + sanitizedId + ". Will use 'keyword'");
           dtInfo.add(new Tuple(rec.id, "keyword"));
         } else {
-          log.error("Could not find datatype for field " + rec.id);
+          String sanitizedId = rec.id.replace("\n", "").replace("\r", "");
+          log.error("Could not find datatype for field " + sanitizedId);
           missing = true;
         }
       }
