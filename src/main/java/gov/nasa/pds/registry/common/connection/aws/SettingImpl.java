@@ -7,7 +7,7 @@ class SettingImpl implements Setting {
   final GetIndicesSettingsRequest.Builder craftsman = new GetIndicesSettingsRequest.Builder();
   @Override
   public Setting setIndex(String name) {
-    this.craftsman.index(name);
+    this.craftsman.index(HelperFunctions.indices(name));
     return this;
   }
 }

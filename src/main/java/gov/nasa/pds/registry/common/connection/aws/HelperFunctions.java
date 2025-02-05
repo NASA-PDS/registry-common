@@ -1,5 +1,7 @@
 package gov.nasa.pds.registry.common.connection.aws;
 
+import java.util.Arrays;
+import java.util.List;
 import org.opensearch.client.opensearch._types.mapping.BinaryProperty;
 import org.opensearch.client.opensearch._types.mapping.BooleanProperty;
 import org.opensearch.client.opensearch._types.mapping.DateProperty;
@@ -11,7 +13,10 @@ import org.opensearch.client.opensearch._types.mapping.LongNumberProperty;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch._types.mapping.TextProperty;
 
-final class PropertyHelper {
+final class HelperFunctions {
+  static List<String> indices (String indexName) {
+    return Arrays.asList(indexName.replace(",", ":").replace(";", ":").split(":"));
+  }
   static Property.Builder setType (Property.Builder builder, String fieldType) {
     switch (fieldType) {
       case "binary":
@@ -45,5 +50,30 @@ final class PropertyHelper {
         throw new RuntimeException("Cannot map type '" + fieldType + "' yet. Please review PropertyHelper.setType() code and fix.");
     }
     return builder;
+  }
+  public static void main(String args[]) {
+    // since this class is package level, test code has to go here so do not forget to enable assertions when testing
+    List<String> values;
+    values = indices("apple");
+    assert 1 == values.size() : "array is wrong size for 'apple'";
+    assert ("apple").equals(values.get(0)) : "value of array is not 'apple'";
+    values = indices("apple,cherry");
+    assert 2 == values.size() : "array is wrong size for 'apple,cherry'";
+    assert ("apple").equals(values.get(0)) : "value of array is not 'apple,cherry'";
+    assert ("cherry").equals(values.get(1)) : "value of array is not 'apple,cherry'";    
+    values = indices("apple;cherry");
+    assert 2 == values.size() : "array is wrong size for 'apple;cherry'";
+    assert ("apple").equals(values.get(0)) : "value of array is not 'apple;cherry'";
+    assert ("cherry").equals(values.get(1)) : "value of array is not 'apple;cherry'";    
+    values = indices("apple:cherry");
+    assert 2 == values.size() : "array is wrong size for 'apple:cherry'";
+    assert ("apple").equals(values.get(0)) : "value of array is not 'apple;cherry'";
+    assert ("cherry").equals(values.get(1)) : "value of array is not 'apple;cherry'";
+    values = indices("apple,cherry;kiwi:plum");
+    assert 4 == values.size() : "array is wrong size for 'apple,cherry;kiwi:plum'";
+    assert ("apple").equals(values.get(0)) : "value of array is not 'apple,cherry;kiwi:plum'";
+    assert ("cherry").equals(values.get(1)) : "value of array is not 'apple,cherry;kiwi:plum'";
+    assert ("kiwi").equals(values.get(2)) : "value of array is not 'apple,cherry;kiwi:plum'";
+    assert ("plum").equals(values.get(3)) : "value of array is not 'apple,cherry;kiwi:plum'";
   }
 }

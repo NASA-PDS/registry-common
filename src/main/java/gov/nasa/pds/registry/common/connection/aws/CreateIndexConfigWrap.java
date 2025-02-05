@@ -62,7 +62,7 @@ class CreateIndexConfigWrap {
             Map<String,Object> template = (Map<String,Object>)namedTemplate.get(name);
             for (String sk : template.keySet()) {
               if (sk.equalsIgnoreCase("mapping"))
-                journeyman.mapping(PropertyHelper.setType(new Property.Builder(),
+                journeyman.mapping(HelperFunctions.setType(new Property.Builder(),
                     ((Map<String,String>)template.get(sk)).get("type")).build());
               else if (sk.equalsIgnoreCase("match_mapping_type")) journeyman.matchMappingType((String)template.get(sk));
               else throw new RuntimeException("Unknown template key '" + pk + "' requiring fix to JSON or CreateIndexConfigWrap.updateMappings()");
@@ -85,7 +85,7 @@ class CreateIndexConfigWrap {
                   break;
                 }
               }
-              else if (sk.equalsIgnoreCase("type")) PropertyHelper.setType(journeyman, propertyMap.get(name).get(sk));
+              else if (sk.equalsIgnoreCase("type")) HelperFunctions.setType(journeyman, propertyMap.get(name).get(sk));
               else throw new RuntimeException("Unknown property key '" + pk + "' requiring fix to JSON or CreateIndexConfigWrap.updateMappings()");
             }
             properties.put(name, journeyman.build());

@@ -11,7 +11,7 @@ class CountImpl implements Count {
   final CountRequest.Builder craftsman = new CountRequest.Builder();
   @Override
   public Count setIndex(String name) {
-    this.craftsman.index(name);
+    this.craftsman.index(HelperFunctions.indices(name));
     return this;
   }
   @Override

@@ -19,7 +19,7 @@ class MappingImpl implements Mapping {
       Property.Builder journeyman = new Property.Builder();
       String fieldName = t.item1;
       String fieldType = t.item2;
-      PropertyHelper.setType(journeyman, fieldType);
+      HelperFunctions.setType(journeyman, fieldType);
       mapping.put(fieldName, journeyman.build());
     }
     this.craftsman_set.properties(mapping);
@@ -29,8 +29,8 @@ class MappingImpl implements Mapping {
 
   @Override
   public Mapping setIndex(String name) {
-    this.craftsman_get.index(name);
-    this.craftsman_set.index(name);
+    this.craftsman_get.index(HelperFunctions.indices(name));
+    this.craftsman_set.index(HelperFunctions.indices(name));
     return this;
   }
 

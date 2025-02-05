@@ -28,8 +28,8 @@ class DBQImpl implements Request.DeleteByQuery {
   }
   @Override
   public Request.DeleteByQuery setIndex(String name) {
-    this.craftsman.index(name);
-    this.index.add(name);
+    this.craftsman.index(HelperFunctions.indices(name));
+    this.index.addAll(HelperFunctions.indices(name));
     return this;
   }
   @Override

@@ -95,7 +95,7 @@ class SearchImpl implements Search {
   }
   @Override
   public Search setIndex(String name) {
-    this.craftsman.index(name);
+    this.craftsman.index(HelperFunctions.indices(name));
     return this;
   }
   @Override
