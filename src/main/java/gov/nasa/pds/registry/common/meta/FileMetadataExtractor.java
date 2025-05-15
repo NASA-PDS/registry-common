@@ -158,6 +158,7 @@ public class FileMetadataExtractor
                         meta.fields.addValue(createDataFileFieldName("compressed_file_ref"), getFileRef(cfile, refRules));
                         meta.fields.addValue(createDataFileFieldName("compressed_file_size"), String.valueOf(cfile.length()));
                         meta.fields.addValue(createDataFileFieldName("compressed_md5_checksum"), getMd5(cfile));
+                        meta.fields.addValue(createDataFileFieldName("compressed_mime_type"), getMimeType(cfile));
                         meta.fields.addValue(createDataFileFieldName("compression_algorithm"), re.algorithm());
                         meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
                         return;
@@ -182,6 +183,7 @@ public class FileMetadataExtractor
             meta.fields.addValue(createDataFileFieldName("compressed_file_ref"), "");
             meta.fields.addValue(createDataFileFieldName("compressed_file_size"), "");
             meta.fields.addValue(createDataFileFieldName("compressed_md5_checksum"), "");
+            meta.fields.addValue(createDataFileFieldName("compressed_mime_type"), "");
             meta.fields.addValue(createDataFileFieldName("compression_algorithm"), "none");
             meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
         }
