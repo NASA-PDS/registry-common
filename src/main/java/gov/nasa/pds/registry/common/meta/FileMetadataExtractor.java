@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.zip.DeflaterOutputStream;
@@ -22,15 +23,18 @@ import org.json.XML;
 
 import gov.nasa.pds.registry.common.meta.cfg.FileRefRule;
 import gov.nasa.pds.registry.common.util.CloseUtils;
+import gov.nasa.pds.registry.common.util.CompressionPattern;
 
 /**
  * Extracts file metadata, such as file name, size, checksum.
  * @author karpenko
  */
 public class FileMetadataExtractor
-{    
+{
+  final private ArrayList<CompressionPattern> compressed = new ArrayList<CompressionPattern>();
     private MessageDigest md5Digest;
     private byte[] buf;
+    private String available;
     private Tika tika;
     
     private boolean storeLabels = true;
@@ -80,7 +84,7 @@ public class FileMetadataExtractor
      * @param refRules rules to create external file references
      * @throws Exception an exception
      */
-    public void extract(File file, Metadata meta, List<FileRefRule> refRules) throws Exception
+    public void extract(File file, Metadata meta, List<FileRefRule> refRules, boolean available, List<CompressionPattern> re) throws Exception
     {
         BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
         String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
@@ -106,7 +110,10 @@ public class FileMetadataExtractor
         // Process data files
         if(processDataFiles)
         {
-            processDataFiles(file.getParentFile(), meta, refRules);
+          this.available = Boolean.toString(available);
+          this.compressed.clear();
+          this.compressed.addAll(re);
+          processDataFiles(file.getParentFile(), meta, refRules);
         }
     }
     
@@ -132,18 +139,53 @@ public class FileMetadataExtractor
             File file = new File(baseDir, fileName);
             if(!file.exists())
             {
-                throw new Exception("Data file " + file.getAbsolutePath() + " doesn't exist");
+              for (CompressionPattern re : compressed) {
+                if (re.matcher(fileName).find()) {
+                  for (String ext : re.extensions()) {
+                    if (fileName.contains(ext.substring(0,1))) {
+                      File cfile = new File(baseDir, fileName.substring(0, fileName.lastIndexOf(ext.charAt(0))) + ext);
+                      if (cfile.exists()) {
+                        BasicFileAttributes attr = Files.readAttributes(cfile.toPath(), BasicFileAttributes.class);
+                        String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
+                        meta.fields.addValue(createDataFileFieldName("creation_date_time"), "UNK");
+                        meta.fields.addValue(createDataFileFieldName("file_name"), file.getName());            
+                        meta.fields.addValue(createDataFileFieldName("file_size"), "UNK");
+                        meta.fields.addValue(createDataFileFieldName("md5_checksum"), "UNK");
+                        meta.fields.addValue(createDataFileFieldName("file_ref"), getFileRef(file, refRules));
+                        meta.fields.addValue(createDataFileFieldName("mime_type"), getMimeType(file));
+                        meta.fields.addValue(createDataFileFieldName("compressed_creation_date_time"), dt);            
+                        meta.fields.addValue(createDataFileFieldName("compressed_file_name"), cfile.getName());            
+                        meta.fields.addValue(createDataFileFieldName("compressed_file_ref"), getFileRef(cfile, refRules));
+                        meta.fields.addValue(createDataFileFieldName("compressed_file_size"), String.valueOf(cfile.length()));
+                        meta.fields.addValue(createDataFileFieldName("compressed_md5_checksum"), getMd5(cfile));
+                        meta.fields.addValue(createDataFileFieldName("compressed_mime_type"), getMimeType(cfile));
+                        meta.fields.addValue(createDataFileFieldName("compression_algorithm"), re.algorithm());
+                        meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
+                        return;
+                      }
+                    }
+                  }
+                }
+              }
+              throw new Exception("Data file " + file.getAbsolutePath() + " doesn't exist");
             }
             
             BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
             String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
             meta.fields.addValue(createDataFileFieldName("creation_date_time"), dt);
-            
             meta.fields.addValue(createDataFileFieldName("file_name"), file.getName());            
             meta.fields.addValue(createDataFileFieldName("file_size"), String.valueOf(file.length()));
             meta.fields.addValue(createDataFileFieldName("md5_checksum"), getMd5(file));
             meta.fields.addValue(createDataFileFieldName("file_ref"), getFileRef(file, refRules));
             meta.fields.addValue(createDataFileFieldName("mime_type"), getMimeType(file));
+            meta.fields.addValue(createDataFileFieldName("compressed_creation_date_time"), "");            
+            meta.fields.addValue(createDataFileFieldName("compressed_file_name"), "");            
+            meta.fields.addValue(createDataFileFieldName("compressed_file_ref"), "");
+            meta.fields.addValue(createDataFileFieldName("compressed_file_size"), "");
+            meta.fields.addValue(createDataFileFieldName("compressed_md5_checksum"), "");
+            meta.fields.addValue(createDataFileFieldName("compressed_mime_type"), "");
+            meta.fields.addValue(createDataFileFieldName("compression_algorithm"), "none");
+            meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
         }
     }
     
