@@ -16,7 +16,7 @@ import java.util.TreeMap;
  * 
  * @author karpenko
  */
-public class FieldMapList implements FieldMap
+public class FieldMapList implements FieldMap<String>
 {
     private Map<String, List<String>> fields;
     
