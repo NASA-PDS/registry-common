@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Set;
 
 import gov.nasa.pds.registry.common.util.FieldMapList;
+import gov.nasa.pds.registry.common.util.FieldMapListOfListOfObjects;
 import gov.nasa.pds.registry.common.util.FieldMapSet;
 
 
@@ -31,7 +32,8 @@ public class Metadata {
 
   public FieldMapSet intRefs; // Internal references (preprocessed)
   public FieldMapList fields; // Metadata fields
-
+  public FieldMapListOfListOfObjects arrays;
+  
   public Set<String> dataFiles; // File names from <File_Area...> tags
 
 
@@ -41,6 +43,7 @@ public class Metadata {
   public Metadata() {
     intRefs = new FieldMapSet();
     fields = new FieldMapList();
+    arrays = new FieldMapListOfListOfObjects();
   }
 
 
