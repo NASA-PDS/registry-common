@@ -3,6 +3,8 @@ package gov.nasa.pds.registry.common.util.json;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import com.google.gson.stream.JsonWriter;
 
 
@@ -144,7 +146,22 @@ public class NJsonDocUtils
         jw.endArray();
     }
 
-
+    public static void writeArrays(JsonWriter jw, String key, Collection<List<Map<String,String>>> listListOfObjects) throws Exception {
+      jw.name(toEsFieldName(key));
+      jw.beginArray();
+      for (List<Map<String,String>> listOfObjects : listListOfObjects) {
+        jw.beginArray();
+        for (Map<String,String> obj : listOfObjects) {
+          jw.beginObject();
+          for (Map.Entry<String,String> entry : obj.entrySet()) {
+            writeField(jw, entry.getKey(), entry.getValue());
+          }
+          jw.endObject();
+        }
+        jw.endArray();
+      }
+      jw.endArray();
+    }
     /**
      * Convert registry field name to the valid Elasticsearch field name.
      * (Replace '.' with '/').

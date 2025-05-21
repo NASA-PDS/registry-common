@@ -48,7 +48,7 @@ public class MissingFieldsProcessor
      * @param xmlns namespaces and schema locations from PDS4 label. 
      * @throws Exception an exception
      */
-    public void processDoc(FieldMap fmap, XmlNamespaces xmlns) throws Exception
+    public void processDoc(FieldMap<String> fmap, XmlNamespaces xmlns) throws Exception
     {
         // Find fields not in Elasticsearch "registry" schema
         for(String key: fmap.getNames())
