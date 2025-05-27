@@ -22,6 +22,7 @@ import org.json.JSONObject;
 import org.json.XML;
 
 import gov.nasa.pds.registry.common.meta.cfg.FileRefRule;
+import gov.nasa.pds.registry.common.util.AccessRights;
 import gov.nasa.pds.registry.common.util.CloseUtils;
 import gov.nasa.pds.registry.common.util.CompressionPattern;
 
@@ -34,7 +35,7 @@ public class FileMetadataExtractor
   final private ArrayList<CompressionPattern> compressed = new ArrayList<CompressionPattern>();
     private MessageDigest md5Digest;
     private byte[] buf;
-    private String available;
+    private AccessRights rights;
     private Tika tika;
     
     private boolean storeLabels = true;
@@ -84,7 +85,7 @@ public class FileMetadataExtractor
      * @param refRules rules to create external file references
      * @throws Exception an exception
      */
-    public void extract(File file, Metadata meta, List<FileRefRule> refRules, boolean available, List<CompressionPattern> re) throws Exception
+    public void extract(File file, Metadata meta, List<FileRefRule> refRules, AccessRights rights, List<CompressionPattern> re) throws Exception
     {
         BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
         String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
@@ -110,7 +111,7 @@ public class FileMetadataExtractor
         // Process data files
         if(processDataFiles)
         {
-          this.available = Boolean.toString(available);
+          this.rights = rights;
           this.compressed.clear();
           this.compressed.addAll(re);
           processDataFiles(file.getParentFile(), meta, refRules);
@@ -169,7 +170,7 @@ public class FileMetadataExtractor
           meta.fields.addValue(createDataFileFieldName("file_ref"), getFileRef(file, refRules));
           meta.fields.addValue(createDataFileFieldName("mime_type"), getMimeType(file));
           meta.fields.addValue(createDataFileFieldName("compression_algorithm"), ca);
-          meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
+          meta.fields.addValue(createDataFileFieldName("file_ref_access_rights"), this.rights.name().replace("_","-"));
         }
     }
     
