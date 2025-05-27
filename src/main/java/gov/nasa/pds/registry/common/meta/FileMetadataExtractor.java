@@ -14,7 +14,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.zip.DeflaterOutputStream;
 
 import org.apache.commons.codec.binary.Hex;
@@ -137,42 +136,40 @@ public class FileMetadataExtractor
         
         for(String fileName: meta.dataFiles)
         {
-          File afile = null;
           File file = new File(baseDir, fileName);
           String ca = "none";
           if(!file.exists())
-            {
-              for (CompressionPattern re : compressed) {
-                if (re.matcher(fileName).find()) {
-                  for (String ext : re.extensions()) {
-                    if (fileName.contains(ext.substring(0,1))) {
-                      File cfile = new File(baseDir, fileName.substring(0, fileName.lastIndexOf(ext.charAt(0))) + ext);
-                      if (cfile.exists()) {
-                        afile = cfile;
-                        ca = re.algorithm();
-                        break;
-                      }
+          {
+            File afile = null;
+            for (CompressionPattern re : compressed) {
+              if (re.matcher(fileName).find()) {
+                for (String ext : re.extensions()) {
+                  if (fileName.contains(ext.substring(0,1))) {
+                    File cfile = new File(baseDir, fileName.substring(0, fileName.lastIndexOf(ext.charAt(0))) + ext);
+                    if (cfile.exists()) {
+                      afile = cfile;
+                      ca = re.algorithm();
+                      break;
                     }
                   }
                 }
-                if (afile != null) break;
               }
-              if (afile == null) throw new Exception("Data file " + file.getAbsolutePath() + " doesn't exist");
-            } else {
-              afile = file;
+              if (afile != null) break;
             }
-            
-            BasicFileAttributes attr = Files.readAttributes(afile.toPath(), BasicFileAttributes.class);
-            String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
-            meta.fields.addValue(createDataFileFieldName("creation_date_time"), dt);
-            meta.fields.addValue(createDataFileFieldName("file_name"), file.getName());            
-            meta.fields.addValue(createDataFileFieldName("file_size"), String.valueOf(afile.length()));
-            meta.fields.addValue(createDataFileFieldName("md5_checksum"), getMd5(afile));
-            meta.fields.addValue(createDataFileFieldName("file_ref"), getFileRef(afile, refRules));
-            meta.fields.addValue(createDataFileFieldName("mime_type"), getMimeType(afile));
-            meta.fields.addValue(createDataFileFieldName("compression_algorithm"), ca);
-            meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
-            meta.arrays.addValue(createDataFileFieldName("altlocs"), new ArrayList<Map<String, String>>());
+            if (afile == null) throw new Exception("Data file " + file.getAbsolutePath() + " doesn't exist");
+            file = afile;
+          }
+           
+          BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
+          String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
+          meta.fields.addValue(createDataFileFieldName("creation_date_time"), dt);
+          meta.fields.addValue(createDataFileFieldName("file_name"), file.getName());            
+          meta.fields.addValue(createDataFileFieldName("file_size"), String.valueOf(file.length()));
+          meta.fields.addValue(createDataFileFieldName("md5_checksum"), getMd5(file));
+          meta.fields.addValue(createDataFileFieldName("file_ref"), getFileRef(file, refRules));
+          meta.fields.addValue(createDataFileFieldName("mime_type"), getMimeType(file));
+          meta.fields.addValue(createDataFileFieldName("compression_algorithm"), ca);
+          meta.fields.addValue(createDataFileFieldName("ref_file_available"), this.available);
         }
     }
     

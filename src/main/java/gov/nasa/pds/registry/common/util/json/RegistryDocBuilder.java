@@ -6,7 +6,6 @@ import com.google.gson.stream.JsonWriter;
 
 import gov.nasa.pds.registry.common.meta.Metadata;
 import gov.nasa.pds.registry.common.util.FieldMap;
-import gov.nasa.pds.registry.common.util.FieldMapListOfListOfObjects;
 
 /**
  * Utility class to build NJson strings
@@ -56,7 +55,6 @@ public class RegistryDocBuilder
         
         // Other Fields
         write(jw, meta.fields);
-        write(jw, meta.arrays);
 
         jw.endObject();
         
@@ -83,15 +81,6 @@ public class RegistryDocBuilder
 
             NJsonDocUtils.writeField(jw, key, values);
         }
-    }
-
-    private static void write(JsonWriter jw, FieldMapListOfListOfObjects fmap) throws Exception {
-      if(fmap == null || fmap.isEmpty()) return;
-        
-      for(String key: fmap.getNames())
-      {
-        NJsonDocUtils.writeArrays(jw, key, fmap.getValues(key));
-      }
     }
 
 }
