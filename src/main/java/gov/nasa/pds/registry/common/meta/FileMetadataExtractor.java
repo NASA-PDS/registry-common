@@ -25,6 +25,7 @@ import gov.nasa.pds.registry.common.meta.cfg.FileRefRule;
 import gov.nasa.pds.registry.common.util.AccessRights;
 import gov.nasa.pds.registry.common.util.CloseUtils;
 import gov.nasa.pds.registry.common.util.CompressionPattern;
+import gov.nasa.pds.registry.common.util.RightsPattern;
 
 /**
  * Extracts file metadata, such as file name, size, checksum.
@@ -33,9 +34,9 @@ import gov.nasa.pds.registry.common.util.CompressionPattern;
 public class FileMetadataExtractor
 {
   final private ArrayList<CompressionPattern> compressed = new ArrayList<CompressionPattern>();
+  final private ArrayList<RightsPattern> rights = new ArrayList<RightsPattern>();
     private MessageDigest md5Digest;
     private byte[] buf;
-    private AccessRights rights;
     private Tika tika;
     
     private boolean storeLabels = true;
@@ -85,7 +86,7 @@ public class FileMetadataExtractor
      * @param refRules rules to create external file references
      * @throws Exception an exception
      */
-    public void extract(File file, Metadata meta, List<FileRefRule> refRules, AccessRights rights, List<CompressionPattern> re) throws Exception
+    public void extract(File file, Metadata meta, List<FileRefRule> refRules, List<RightsPattern> rights, List<CompressionPattern> re) throws Exception
     {
         BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
         String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
@@ -111,7 +112,8 @@ public class FileMetadataExtractor
         // Process data files
         if(processDataFiles)
         {
-          this.rights = rights;
+          this.rights.clear();
+          this.rights.addAll(rights);
           this.compressed.clear();
           this.compressed.addAll(re);
           processDataFiles(file.getParentFile(), meta, refRules);
@@ -160,9 +162,16 @@ public class FileMetadataExtractor
             if (afile == null) throw new Exception("Data file " + file.getAbsolutePath() + " doesn't exist");
             file = afile;
           }
-           
+          AccessRights right = AccessRights.open;
           BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
           String dt = attr.creationTime().toInstant().truncatedTo(ChronoUnit.SECONDS).toString();
+
+          for (RightsPattern rp : this.rights) {
+            if (rp.matcher(fileName).find()) {
+              right = rp.accessRight();
+              break;
+            }
+          }
           meta.fields.addValue(createDataFileFieldName("creation_date_time"), dt);
           meta.fields.addValue(createDataFileFieldName("file_name"), file.getName());            
           meta.fields.addValue(createDataFileFieldName("file_size"), String.valueOf(file.length()));
@@ -170,7 +179,7 @@ public class FileMetadataExtractor
           meta.fields.addValue(createDataFileFieldName("file_ref"), getFileRef(file, refRules));
           meta.fields.addValue(createDataFileFieldName("mime_type"), getMimeType(file));
           meta.fields.addValue(createDataFileFieldName("compression_algorithm"), ca);
-          meta.fields.addValue(createDataFileFieldName("file_ref_access_rights"), this.rights.name().replace("_","-"));
+          meta.fields.addValue(createDataFileFieldName("file_ref_access_rights"), right.name().replace("_","-"));
         }
     }
     
