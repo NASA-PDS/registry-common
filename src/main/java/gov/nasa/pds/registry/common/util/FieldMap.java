@@ -8,13 +8,13 @@ import java.util.Set;
  *  
  * @author karpenko
  */
-public interface FieldMap
+public interface FieldMap<T>
 {
-    public void addValue(String fieldName, String value);
-    public void addValues(String fieldName, String[] values);
+    public void addValue(String fieldName, T value);
+    public void addValues(String fieldName, T[] values);
 
-    public Collection<String> getValues(String fieldName);
-    public String getFirstValue(String fieldName);
+    public Collection<T> getValues(String fieldName);
+    public T getFirstValue(String fieldName);
     public Set<String> getNames();
     
     public boolean isEmpty();
