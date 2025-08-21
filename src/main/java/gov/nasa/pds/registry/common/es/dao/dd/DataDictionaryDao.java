@@ -1,10 +1,15 @@
 package gov.nasa.pds.registry.common.es.dao.dd;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import gov.nasa.pds.registry.common.Request;
+import gov.nasa.pds.registry.common.ResponseException;
 import gov.nasa.pds.registry.common.RestClient;
 import gov.nasa.pds.registry.common.util.Tuple;
 
@@ -85,17 +90,36 @@ public class DataDictionaryDao
      * If false, process all missing fields in a batch to create a list of 
      * missing namespaces. Don't throw DataTypeNotFoundException.  
      * @return Data types information object
+     * @throws DataTypeNotFoundException 
+     * @throws IOException 
+     * @throws ResponseException 
      * @throws Exception DataTypeNotFoundException, IOException, etc.
      */
-    public List<Tuple> getDataTypes(Collection<String> ids, boolean stringForMissing) throws Exception
+    public List<Tuple> getDataTypes(Collection<String> ids) throws IOException, DataTypeNotFoundException
     {
         if(ids == null || ids.isEmpty()) return null;
-        // Create request
+
+        HashMap<String,HashSet<String>> mapping = new HashMap<String,HashSet<String>>();
+        for (String id : ids) {
+          String[] parts = id.split("\\.");
+          String typeId = id;
+          if (parts.length > 1) {
+            typeId = parts[parts.length-2] + "." +  parts[parts.length-1];
+          }
+          if (!mapping.containsKey(typeId)) mapping.put(typeId, new HashSet<String>());
+          mapping.get(typeId).add(id);
+        }
         Request.Get req = client.createMGetRequest()
-            .setIds(ids)
+            .setIds(mapping.keySet())
             .includeField("es_data_type")
             .setIndex(this.indexName + "-dd");
-        return this.client.performRequest(req).dataTypes(stringForMissing);
+        ArrayList<Tuple> result = new ArrayList<Tuple>(ids.size());
+        for (Tuple t : this.client.performRequest(req).dataTypes()) {
+          for (String id : mapping.get(t.item1)) {
+            result.add(new Tuple(id, t.item2));
+          }
+        }
+        return result;
     }
 
 }
