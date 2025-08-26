@@ -31,7 +31,7 @@ public class Metadata {
 
   public FieldMapSet intRefs; // Internal references (preprocessed)
   public FieldMapList fields; // Metadata fields
-
+  
   public Set<String> dataFiles; // File names from <File_Area...> tags
 
 
