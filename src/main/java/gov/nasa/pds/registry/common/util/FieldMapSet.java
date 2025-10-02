@@ -15,7 +15,7 @@ import java.util.TreeSet;
  * 
  * @author karpenko
  */
-public class FieldMapSet implements FieldMap
+public class FieldMapSet implements FieldMap<String>
 {
     private Map<String, Set<String>> fields;
         

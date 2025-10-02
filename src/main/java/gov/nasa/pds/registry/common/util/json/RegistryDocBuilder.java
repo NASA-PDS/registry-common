@@ -2,7 +2,6 @@ package gov.nasa.pds.registry.common.util.json;
 
 import java.io.StringWriter;
 import java.util.Collection;
-
 import com.google.gson.stream.JsonWriter;
 
 import gov.nasa.pds.registry.common.meta.Metadata;
@@ -56,7 +55,7 @@ public class RegistryDocBuilder
         
         // Other Fields
         write(jw, meta.fields);
-        
+
         jw.endObject();
         
         jw.close();
@@ -66,7 +65,7 @@ public class RegistryDocBuilder
     }
 
     
-    private static void write(JsonWriter jw, FieldMap fmap) throws Exception
+    private static void write(JsonWriter jw, FieldMap<String> fmap) throws Exception
     {
         if(fmap == null || fmap.isEmpty()) return;
         
