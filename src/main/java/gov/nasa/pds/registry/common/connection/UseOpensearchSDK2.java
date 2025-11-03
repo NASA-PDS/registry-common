@@ -53,9 +53,7 @@ public final class UseOpensearchSDK2 implements ConnectionFactory {
     expectedContent &= response.body().contains("AccessToken");
     expectedContent &= response.body().contains("ExpiresIn");
     expectedContent &= response.body().contains("IdToken");
-    expectedContent &= response.body().contains("RefreshToken");
     expectedContent &= response.body().contains("TokenType");
-    expectedContent &= response.body().contains("ChallengeParameters");
     if (!expectedContent) {
       throw new IOException("Received an unexpected response of: " + response.toString()
       + " ->\n" + response.body());
@@ -71,7 +69,7 @@ public final class UseOpensearchSDK2 implements ConnectionFactory {
     this.content.gateway = gateway;
     this.content.idp = idp;
     this.content.idToken = content.get("AuthenticationResult").get("IdToken");
-    this.content.refreshToken = content.get("AuthenticationResult").get("RefreshToken");
+    this.content.refreshToken = (content.get("AuthenticationResult").containsKey("RefreshToken")) ? content.get("AuthenticationResult").get("RefreshToken") : null;
     this.content.tokenType = content.get("AuthenticationResult").get("TokenType");
     return this;
   }
@@ -239,7 +237,6 @@ public final class UseOpensearchSDK2 implements ConnectionFactory {
         expectedContent &= response.body().contains("ExpiresIn");
         expectedContent &= response.body().contains("IdToken");
         expectedContent &= response.body().contains("TokenType");
-        expectedContent &= response.body().contains("ChallengeParameters");
         if (!expectedContent) {
           throw new IOException("Received an unexpected response of: " + response.toString()
           + " ->\n" + response.body());
