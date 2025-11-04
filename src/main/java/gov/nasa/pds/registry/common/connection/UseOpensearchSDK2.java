@@ -69,7 +69,7 @@ public final class UseOpensearchSDK2 implements ConnectionFactory {
     this.content.gateway = gateway;
     this.content.idp = idp;
     this.content.idToken = content.get("AuthenticationResult").get("IdToken");
-    this.content.refreshToken = (content.get("AuthenticationResult").containsKey("RefreshToken")) ? content.get("AuthenticationResult").get("RefreshToken") : null;
+    this.content.refreshToken = content.get("AuthenticationResult").getOrDefault("RefreshToken", null);
     this.content.tokenType = content.get("AuthenticationResult").get("TokenType");
     return this;
   }
