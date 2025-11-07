@@ -12,7 +12,8 @@ import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch._types.mapping.TextProperty;
 
 final class PropertyHelper {
-  static Property.Builder setType (Property.Builder builder, String fieldType) {
+  static Property.Builder setType(Property.Builder builder, String fieldType)
+      throws UnknownMappingTypeException {
     switch (fieldType) {
       case "binary":
         builder.binary(new BinaryProperty.Builder().build());
@@ -42,7 +43,8 @@ final class PropertyHelper {
         builder.text(new TextProperty.Builder().build());
         break;
       default:
-        throw new RuntimeException("Cannot map type '" + fieldType + "' yet. Please review PropertyHelper.setType() code and fix.");
+        throw new UnknownMappingTypeException("Cannot map type '" + fieldType
+            + "' yet. Please review PropertyHelper.setType() code and fix.");
     }
     return builder;
   }
