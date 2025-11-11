@@ -1,5 +1,8 @@
 package gov.nasa.pds.registry.common.connection.aws;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import org.opensearch.client.opensearch._types.mapping.BinaryProperty;
 import org.opensearch.client.opensearch._types.mapping.BooleanProperty;
 import org.opensearch.client.opensearch._types.mapping.DateProperty;
@@ -10,8 +13,12 @@ import org.opensearch.client.opensearch._types.mapping.KeywordProperty;
 import org.opensearch.client.opensearch._types.mapping.LongNumberProperty;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch._types.mapping.TextProperty;
+import org.opensearch.client.opensearch._types.mapping.GeoShapeProperty;
 
 final class PropertyHelper {
+
+  static private Logger logger = LogManager.getLogger(PropertyHelper.class);
+
   static Property.Builder setType(Property.Builder builder, String fieldType)
       throws UnknownMappingTypeException {
     switch (fieldType) {
@@ -40,7 +47,11 @@ final class PropertyHelper {
         builder.long_(new LongNumberProperty.Builder().build());
         break;
       case "text":
+        logger.debug("OpenSearch property type unknown of PDS4: " + fieldType);
         builder.text(new TextProperty.Builder().build());
+        break;
+      case "geo_shape":
+        builder.geoShape(new GeoShapeProperty.Builder().build());
         break;
       default:
         throw new UnknownMappingTypeException("Cannot map type '" + fieldType
