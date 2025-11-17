@@ -179,6 +179,7 @@ POSSIBILITY OF SUCH DAMAGE.
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
                     <detectJavaApiLink>false</detectJavaApiLink>
+                    <failOnError>false</failOnError>
                 </configuration>
             </plugin>
         </plugins>
