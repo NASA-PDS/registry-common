@@ -172,6 +172,20 @@ POSSIBILITY OF SUCH DAMAGE.
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <!-- See https://central.sonatype.org/publish/publish-portal-maven/ for more details -->
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.9.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+          <autoPublish>true</autoPublish>
+          <waitUntil>published</waitUntil>
+          <waitMaxTime>5400</waitMaxTime>
+		  <pollTimeoutSeconds>7200</pollTimeoutSeconds>
+        </configuration>
+      </plugin>
         </plugins>
     </build>
 
