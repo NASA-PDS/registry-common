@@ -47,13 +47,13 @@ final class PropertyHelper {
         builder.long_(new LongNumberProperty.Builder().build());
         break;
       case "text":
-        logger.debug("OpenSearch property type unknown of PDS4: " + fieldType);
         builder.text(new TextProperty.Builder().build());
         break;
       case "geo_shape":
         builder.geoShape(new GeoShapeProperty.Builder().build());
         break;
       default:
+        logger.debug("OpenSearch property type unknown of PDS4: " + fieldType);
         throw new UnknownMappingTypeException("Cannot map type '" + fieldType
             + "' yet. Please review PropertyHelper.setType() code and fix.");
     }
