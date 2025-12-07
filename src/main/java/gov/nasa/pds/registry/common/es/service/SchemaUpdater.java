@@ -42,7 +42,10 @@ public class SchemaUpdater {
   /**
    * Constructor
    * 
-   * @param cfg Registry (Elasticsearch) configuration
+   * @param conFact instance of class ConnectionFactory
+   * @param ddDao instance of DataDictionaryDao
+   * @param schemaDao instance of SchemaDao
+   * 
    * @throws Exception
    */
   public SchemaUpdater(ConnectionFactory conFact, DataDictionaryDao ddDao, SchemaDao schemaDao)
