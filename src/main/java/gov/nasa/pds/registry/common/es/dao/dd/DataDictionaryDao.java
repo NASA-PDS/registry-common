@@ -46,7 +46,7 @@ public class DataDictionaryDao {
    * @throws Exception an exception
    */
   public LddVersions getLddInfo(String namespace)
-      throws UnsupportedOperationException, ResponseException, IOException {
+      throws UnsupportedOperationException, IOException {
     Request.Search req =
         client.createSearchRequest().buildListLdds(namespace).setIndex(indexName + "-dd");
     return client.performRequest(req).lddInfo();
@@ -64,7 +64,7 @@ public class DataDictionaryDao {
    * @throws Exception an exception
    */
   public List<LddInfo> listLdds(String namespace)
-      throws UnsupportedOperationException, ResponseException, IOException {
+      throws UnsupportedOperationException, IOException {
     Request.Search req =
         client.createSearchRequest().buildListLdds(namespace).setIndex(this.indexName + "-dd");
     return client.performRequest(req).ldds();
@@ -80,7 +80,7 @@ public class DataDictionaryDao {
    * @throws Exception an exception
    */
   public Set<String> getFieldNamesByEsType(String esType)
-      throws UnsupportedOperationException, ResponseException, IOException {
+      throws UnsupportedOperationException, IOException {
     Request.Search req =
         client.createSearchRequest().buildListFields(esType).setIndex(this.indexName + "-dd");
     return client.performRequest(req).fields();
@@ -101,7 +101,7 @@ public class DataDictionaryDao {
    * @throws Exception DataTypeNotFoundException, IOException, etc.
    */
   public List<Tuple> getDataTypes(Collection<String> ids)
-      throws ResponseException, IOException, DataTypeNotFoundException {
+      throws IOException, DataTypeNotFoundException {
     if (ids == null || ids.isEmpty())
       return null;
     // Create request
