@@ -130,7 +130,7 @@ class GetRespImpl implements Response.Get {
     return collectionIds;
   }
   @Override
-  public List<Tuple> dataTypes(boolean stringForMissing) throws IOException, DataTypeNotFoundException {
+  public List<Tuple> dataTypes() throws IOException, DataTypeNotFoundException {
     List<Tuple> dtInfo = new ArrayList<Tuple>();
     GetDataTypesResponseParser parser = new GetDataTypesResponseParser();
     List<GetDataTypesResponseParser.Record> records = parser.parse(this.response.getEntity());
@@ -148,16 +148,16 @@ class GetRespImpl implements Response.Get {
           dtInfo.add(new Tuple(rec.id, "keyword"));
           continue;
         }
-        if (stringForMissing) {
-          log.warn("Could not find datatype for field " + rec.id + ". Will use 'keyword'");
-          dtInfo.add(new Tuple(rec.id, "keyword"));
+        if (rec.id.contains("@")) {
+          log.warn("Could not find datatype for field " + rec.id + ". Will use 'text'");
+          dtInfo.add(new Tuple(rec.id, "text"));
         } else {
           log.error("Could not find datatype for field " + rec.id);
           missing = true;
         }
       }
     }
-    if (stringForMissing == false && missing == true)
+    if (missing == true)
       throw new DataTypeNotFoundException();
 
     return dtInfo;

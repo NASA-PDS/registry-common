@@ -36,9 +36,6 @@ public class SchemaUpdater {
 
   final private String index;
 
-  // Use string data type for undefined fields
-  private boolean stringForMissing = true;
-
   /**
    * Constructor
    * 
@@ -91,7 +88,7 @@ public class SchemaUpdater {
 
     // Update schema
     if (fields != null && !fields.isEmpty()) {
-      List<Tuple> newFields = ddDao.getDataTypes(fields, stringForMissing);
+      List<Tuple> newFields = ddDao.getDataTypes(fields);
       if (newFields != null) {
         schemaDao.updateSchema(newFields);
         log.debug("Updated " + newFields.size() + " fields in OpenSearch mapping for index "
