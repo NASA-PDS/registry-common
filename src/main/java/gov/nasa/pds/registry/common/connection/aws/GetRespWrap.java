@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.client.opensearch.core.GetResponse;
@@ -20,7 +19,7 @@ class GetRespWrap implements Response.Get {
     this.parent = parent;
   }
   @Override
-  public List<Tuple> dataTypes(boolean stringForMissing)
+  public List<Tuple> dataTypes()
       throws IOException, DataTypeNotFoundException {
     throw new RuntimeException("This method is supported via MGet and should never be called here");
   }
