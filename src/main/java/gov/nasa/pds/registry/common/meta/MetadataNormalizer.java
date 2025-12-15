@@ -43,7 +43,7 @@ public class MetadataNormalizer
                 if(oldValues == null) continue; 
                 
                 List<String> newValues = convertDateValues(key, oldValues);
-                fields.setValues(key, newValues);
+                if (!newValues.isEmpty()) fields.setValues(key, newValues);
             }
             // Convert boolean fields
             else if(fieldNameCache.isBooleanField(key))
@@ -67,7 +67,7 @@ public class MetadataNormalizer
             try
             {
                 String newValue = dateConverter.toIsoInstantString(key, oldValue);
-                newValues.add(newValue);
+                if (newValue != null && !newValue.isBlank()) newValues.add(newValue);
             }
             catch(Exception ex)
             {
