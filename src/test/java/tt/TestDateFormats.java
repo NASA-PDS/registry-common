@@ -1,6 +1,7 @@
 package tt;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.text.ParseException;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,8 @@ public class TestDateFormats {
 
   @Test
   public void testPdsDates() throws Exception {
+    assertNull(testPdsDate(null));
+    assertNull(testPdsDate(""));
     assertNotNull(testPdsDate("2013-10-24T00:00:00Z"));
     assertNotNull(testPdsDate("2013-10-24T00:49:37.457Z"));
 
