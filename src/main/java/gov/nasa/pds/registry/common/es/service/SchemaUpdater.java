@@ -9,6 +9,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import gov.nasa.pds.registry.common.dd.LddException;
 import gov.nasa.pds.registry.common.dd.LddUtils;
 import gov.nasa.pds.registry.common.util.ExceptionUtils;
 import gov.nasa.pds.registry.common.util.file.FileDownloader;
@@ -79,9 +80,8 @@ public class SchemaUpdater {
         try {
           updateLdd(uri, prefix);
         } catch (Exception ex) {
-          log.error(
-              "Could not update LDD related to schema at URI " + uri + ". Something went wrong.",
-              ex);
+          log.error("Could not update LDD for namespace '" + prefix + "' at URI " + uri
+              + ": " + ex.getMessage() + ". Harvesting will continue with available field definitions.");
         }
       }
     }
@@ -98,7 +98,7 @@ public class SchemaUpdater {
   }
 
 
-  private void updateLdd(String uri, String prefix) throws Exception {
+  private void updateLdd(String uri, String prefix) throws LddException {
     if (uri == null || uri.isEmpty())
       return;
     if (prefix == null || prefix.isEmpty())
@@ -112,12 +112,18 @@ public class SchemaUpdater {
     // Get schema file name
     int idx = jsonUrl.lastIndexOf('/');
     if (idx < 0) {
-      throw new Exception("Invalid schema URI." + uri);
+      throw new IllegalArgumentException("Invalid schema URI: " + uri);
     }
     String schemaFileName = jsonUrl.substring(idx + 1);
 
     // Get stored LDDs info
-    LddVersions lddInfo = ddDao.getLddInfo(prefix);
+    LddVersions lddInfo;
+    try {
+      lddInfo = ddDao.getLddInfo(prefix);
+    } catch (Exception ex) {
+      throw new LddException("Failed to query registry for existing LDD info for namespace '"
+          + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
+    }
 
     // LDD already loaded
     if (lddInfo.files.contains(schemaFileName)) {
@@ -125,19 +131,28 @@ public class SchemaUpdater {
     }
 
     // Download LDD
-    File lddFile = File.createTempFile("LDD-", ".JSON");
+    File lddFile;
+    try {
+      lddFile = File.createTempFile("LDD-", ".JSON");
+    } catch (Exception ex) {
+      throw new LddException("Failed to create temp file for LDD download for namespace '"
+          + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
+    }
 
     try {
       if (fileDownloader.download(jsonUrl, lddFile)) {
         lddLoader.load(lddFile, schemaFileName, prefix);
       }
     } catch (Exception ex) {
-      log.error(ExceptionUtils.getMessage(ex));
+      log.error("Failed to download or load LDD for namespace '" + prefix + "' from " + jsonUrl
+          + ": " + ExceptionUtils.getMessage(ex));
       if (lddInfo.isEmpty()) {
-        log.warn("Will use 'keyword' data type.");
+        log.warn("No previously loaded LDD found for namespace '" + prefix
+            + "'. Fields from this namespace will use 'keyword' data type.");
         return;
       } else {
-        log.warn("Will use field definitions from " + lddInfo.files);
+        log.warn("Will use previously loaded field definitions for namespace '" + prefix
+            + "' from " + lddInfo.files);
         return;
       }
     } finally {
@@ -146,12 +161,11 @@ public class SchemaUpdater {
   }
 
 
-  private String getJsonUrl(String uri) throws Exception {
+  private String getJsonUrl(String uri) {
     if (uri.endsWith(".xsd")) {
-      String jsonUrl = uri.substring(0, uri.length() - 3) + "JSON";
-      return jsonUrl;
+      return uri.substring(0, uri.length() - 3) + "JSON";
     } else {
-      throw new Exception("Invalid schema URI. URI doesn't end with '.xsd': " + uri);
+      throw new IllegalArgumentException("Invalid schema URI - does not end with '.xsd': " + uri);
     }
   }
 
