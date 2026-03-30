@@ -134,7 +134,6 @@ public class RestClientWrapper implements RestClient {
   }
   @Override
   public void close() throws IOException {
-    this.client.shutdown();
     this.httpClient.close();
   }
   @Override
