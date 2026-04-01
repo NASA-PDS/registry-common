@@ -2,6 +2,7 @@ package gov.nasa.pds.registry.common.es.service;
 
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,7 +121,9 @@ public class SchemaUpdater {
     LddVersions lddInfo;
     try {
       lddInfo = ddDao.getLddInfo(prefix);
-    } catch (Exception ex) {
+    } catch (RuntimeException ex) {
+      throw ex;
+    } catch (IOException ex) {
       throw new LddException("Failed to query registry for existing LDD info for namespace '"
           + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
     }
@@ -134,7 +137,7 @@ public class SchemaUpdater {
     File lddFile;
     try {
       lddFile = File.createTempFile("LDD-", ".JSON");
-    } catch (Exception ex) {
+    } catch (IOException ex) {
       throw new LddException("Failed to create temp file for LDD download for namespace '"
           + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
     }
@@ -143,17 +146,27 @@ public class SchemaUpdater {
       if (fileDownloader.download(jsonUrl, lddFile)) {
         lddLoader.load(lddFile, schemaFileName, prefix);
       }
+    } catch (RuntimeException ex) {
+      throw ex;
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while downloading or loading LDD for namespace '" + prefix + "' from " + jsonUrl);
+      if (lddInfo.isEmpty()) {
+        log.warn("No previously loaded LDD found for namespace '" + prefix
+            + "'. Fields from this namespace will use 'keyword' data type.");
+      } else {
+        log.warn("Will use previously loaded field definitions for namespace '" + prefix
+            + "' from " + lddInfo.files);
+      }
     } catch (Exception ex) {
       log.error("Failed to download or load LDD for namespace '" + prefix + "' from " + jsonUrl
           + ": " + ExceptionUtils.getMessage(ex));
       if (lddInfo.isEmpty()) {
         log.warn("No previously loaded LDD found for namespace '" + prefix
             + "'. Fields from this namespace will use 'keyword' data type.");
-        return;
       } else {
         log.warn("Will use previously loaded field definitions for namespace '" + prefix
             + "' from " + lddInfo.files);
-        return;
       }
     } finally {
       lddFile.delete();
