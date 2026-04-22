@@ -137,6 +137,11 @@ public class SchemaUpdater {
     File lddFile;
     try {
       lddFile = File.createTempFile("LDD-", ".JSON");
+      // Restrict permissions to owner only (mitigate publicly writable temp dir risk)
+      lddFile.setReadable(false, false);
+      lddFile.setReadable(true, true);
+      lddFile.setWritable(false, false);
+      lddFile.setWritable(true, true);
     } catch (IOException ex) {
       throw new LddException("Failed to create temp file for LDD download for namespace '"
           + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
