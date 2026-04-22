@@ -158,6 +158,7 @@ public class SchemaUpdater {
         log.warn("Will use previously loaded field definitions for namespace '" + prefix
             + "' from " + lddInfo.files);
       }
+      return;
     } catch (Exception ex) {
       log.error("Failed to download or load LDD for namespace '" + prefix + "' from " + jsonUrl
           + ": " + ExceptionUtils.getMessage(ex));

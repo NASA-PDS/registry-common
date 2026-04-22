@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import javax.net.ssl.SSLContext;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -39,8 +39,8 @@ import gov.nasa.pds.registry.common.util.CloseUtils;
  */
 public class FileDownloader
 {
-  final private static ArrayList<String> ignore = new ArrayList<String>();
-  final private static ArrayList<String> failed = new ArrayList<String>();
+  final private static CopyOnWriteArrayList<String> ignore = new CopyOnWriteArrayList<String>();
+  final private static CopyOnWriteArrayList<String> failed = new CopyOnWriteArrayList<String>();
     private Logger log;
     private int numRetries = 3;
     
