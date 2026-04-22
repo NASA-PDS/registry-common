@@ -2,8 +2,9 @@ package gov.nasa.pds.registry.common.util.file;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import javax.net.ssl.SSLContext;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -38,7 +39,8 @@ import gov.nasa.pds.registry.common.util.CloseUtils;
  */
 public class FileDownloader
 {
-  final private static ArrayList<String> ignore = new ArrayList<String>();
+  final private static CopyOnWriteArrayList<String> ignore = new CopyOnWriteArrayList<String>();
+  final private static CopyOnWriteArrayList<String> failed = new CopyOnWriteArrayList<String>();
     private Logger log;
     private int numRetries = 3;
     
@@ -64,10 +66,15 @@ public class FileDownloader
      * @param toFile Save to this file
      * @throws Exception an exception
      */
-    public boolean download(String fromUrl, File toFile) throws Exception
+    public boolean download(String fromUrl, File toFile) throws IOException, InterruptedException
     {
+        if(failed.contains(fromUrl))
+        {
+            throw new IOException("Could not download " + fromUrl + " (already failed in this running instance, will not retry).");
+        }
+
         int count = 0;
-        
+
         while(!ignore.contains(fromUrl))
         {
             try
@@ -86,8 +93,8 @@ public class FileDownloader
                 }
                 else
                 {
-                  ignore.add(fromUrl);
-                  throw new Exception("Could not download " + fromUrl + " and will not try again in this running instance.");
+                  failed.add(fromUrl);
+                  throw new IOException("Could not download " + fromUrl + " and will not try again in this running instance.");
                 }
             }
         }
