@@ -1,9 +1,5 @@
 # Changelog
 
-## [release/2.4.2](https://github.com/NASA-PDS/registry-common/tree/release/2.4.2) (2026-05-07)
-
-[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.3.0...release/2.4.2)
-
 ## [v2.3.0](https://github.com/NASA-PDS/registry-common/tree/v2.3.0) (2025-11-18)
 
 [Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.1.0...v2.3.0)
@@ -20,10 +16,6 @@
 
 - Fix code scanning alert [\#107](https://github.com/NASA-PDS/registry-common/issues/107) [[s.low](https://github.com/NASA-PDS/registry-common/labels/s.low)]
 - Improvement to connections per scanning alerts [\#26](https://github.com/NASA-PDS/registry-common/issues/26) [[s.medium](https://github.com/NASA-PDS/registry-common/labels/s.medium)]
-
-**Other closed issues:**
-
-- Update Harvest\_Info attributes to use Tracking\_Meta [\#22](https://github.com/NASA-PDS/registry-common/issues/22)
 
 ## [v2.0.5](https://github.com/NASA-PDS/registry-common/tree/v2.0.5) (2025-04-15)
 
