@@ -40,6 +40,11 @@ public class SchemaUpdater {
   private SchemaDao schemaDao;
 
   final private String index;
+  private boolean forceLoad = false;
+
+  public void setForceLoad(boolean forceLoad) {
+    this.forceLoad = forceLoad;
+  }
 
   /**
    * Constructor
@@ -83,6 +88,8 @@ public class SchemaUpdater {
 
         try {
           updateLdd(uri, prefix);
+        } catch (LddException ex) {
+          throw ex;
         } catch (Exception ex) {
           log.error("Could not update LDD for namespace '" + prefix + "' at URI " + uri
               + ": " + ex.getMessage() + ". Harvesting will continue with available field definitions.");
@@ -175,8 +182,12 @@ public class SchemaUpdater {
       Thread.currentThread().interrupt();
       log.error("Interrupted while downloading or loading LDD for namespace '" + prefix + "' from " + jsonUrl);
       if (lddInfo.isEmpty()) {
-        log.warn("No previously loaded LDD found for namespace '" + prefix
-            + "'. Fields from this namespace will use 'keyword' data type.");
+        if (!forceLoad) {
+          throw new LddException("No previously loaded LDD found for namespace '" + prefix
+              + "'. Cannot load products with fields from this namespace.");
+        }
+        log.warn("Force mode: no LDD found for namespace '" + prefix
+            + "'. Fields from this namespace will not be indexed.");
       } else {
         log.warn("Will use previously loaded field definitions for namespace '" + prefix
             + "' from " + lddInfo.files);
@@ -186,8 +197,12 @@ public class SchemaUpdater {
       log.error("Failed to download or load LDD for namespace '" + prefix + "' from " + jsonUrl
           + ": " + ExceptionUtils.getMessage(ex));
       if (lddInfo.isEmpty()) {
-        log.warn("No previously loaded LDD found for namespace '" + prefix
-            + "'. Fields from this namespace will use 'keyword' data type.");
+        if (!forceLoad) {
+          throw new LddException("No previously loaded LDD found for namespace '" + prefix
+              + "'. Cannot load products with fields from this namespace.");
+        }
+        log.warn("Force mode: no LDD found for namespace '" + prefix
+            + "'. Fields from this namespace will not be indexed.");
       } else {
         log.warn("Will use previously loaded field definitions for namespace '" + prefix
             + "' from " + lddInfo.files);
