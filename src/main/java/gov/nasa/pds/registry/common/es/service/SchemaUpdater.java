@@ -3,6 +3,8 @@ package gov.nasa.pds.registry.common.es.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +31,10 @@ import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
  * @author karpenko
  */
 public class SchemaUpdater {
+  // Cached domain redirects: if a non-pds.nasa.gov host fails but its pds.nasa.gov
+  // mirror succeeds, future requests from that host go directly to pds.nasa.gov.
+  static final Map<String, String> domainRedirects = new HashMap<>();
+
   private Logger log;
   private FileDownloader fileDownloader;
   private JsonLddLoader lddLoader;
@@ -107,8 +113,8 @@ public class SchemaUpdater {
 
     log.info("Updating '" + prefix + "' LDD. Schema location: " + uri);
 
-    // Get JSON schema URL from XSD URL
-    String jsonUrl = getJsonUrl(uri);
+    // Get JSON schema URL from XSD URL, applying any cached domain redirect
+    String jsonUrl = applyDomainRedirect(getJsonUrl(uri));
 
     // Get schema file name
     int idx = jsonUrl.lastIndexOf('/');
@@ -165,6 +171,25 @@ public class SchemaUpdater {
       }
       return;
     } catch (Exception ex) {
+      String fallbackUrl = LddUrlUtils.toPdsNasaGovUrl(jsonUrl);
+      if (fallbackUrl != null) {
+        log.warn("Failed to download LDD from " + jsonUrl + "; trying pds.nasa.gov mirror: " + fallbackUrl);
+        boolean mirrorSuccess = false;
+        try {
+          if (fileDownloader.download(fallbackUrl, lddFile)) {
+            String originalHost = new URL(jsonUrl).getHost();
+            domainRedirects.put(originalHost, LddUrlUtils.PDS_NASA_GOV);
+            log.info("Caching domain redirect: " + originalHost + " -> " + LddUrlUtils.PDS_NASA_GOV);
+            lddLoader.load(lddFile, schemaFileName, prefix);
+            mirrorSuccess = true;
+          }
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+        } catch (Exception fallbackEx) {
+          log.debug("pds.nasa.gov mirror also failed: " + fallbackEx.getMessage());
+        }
+        if (mirrorSuccess) return;
+      }
       log.error("Failed to download or load LDD for namespace '" + prefix + "' from " + jsonUrl
           + ": " + ExceptionUtils.getMessage(ex));
       if (lddInfo.isEmpty()) {
@@ -186,6 +211,27 @@ public class SchemaUpdater {
     } else {
       throw new IllegalArgumentException("Invalid schema URI - does not end with '.xsd': " + uri);
     }
+  }
+
+
+  /**
+   * Apply any cached domain redirect to a URL. If the URL's host has a known
+   * redirect (e.g. isda.issdc.gov.in → pds.nasa.gov), return the rewritten URL.
+   */
+  private String applyDomainRedirect(String url) {
+    try {
+      String host = new URL(url).getHost();
+      if (domainRedirects.containsKey(host)) {
+        String redirected = LddUrlUtils.toPdsNasaGovUrl(url);
+        if (redirected != null) {
+          log.debug("Redirecting " + url + " to " + redirected + " (cached domain redirect)");
+          return redirected;
+        }
+      }
+    } catch (Exception e) {
+      // fall through and return original
+    }
+    return url;
   }
 
 }
