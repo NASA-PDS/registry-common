@@ -1,8 +1,8 @@
 # Changelog
 
-## [release/2.4.3](https://github.com/NASA-PDS/registry-common/tree/release/2.4.3) (2026-05-17)
+## [v2.4.3](https://github.com/NASA-PDS/registry-common/tree/v2.4.3) (2026-05-17)
 
-[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.3.0...release/2.4.3)
+[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.3.0...v2.4.3)
 
 ## [v2.3.0](https://github.com/NASA-PDS/registry-common/tree/v2.3.0) (2025-11-18)
 
