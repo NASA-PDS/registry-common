@@ -1,5 +1,13 @@
 # Changelog
 
+## [«unknown»](https://github.com/NASA-PDS/registry-common/tree/«unknown») (2026-06-01)
+
+[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.4.3...«unknown»)
+
+**Improvements:**
+
+- Fallback to pds.nasa.gov mirror when third-party LDD URL is unreachable [\#279](https://github.com/NASA-PDS/registry-common/issues/279)
+
 ## [v2.4.3](https://github.com/NASA-PDS/registry-common/tree/v2.4.3) (2026-05-17)
 
 [Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.3.0...v2.4.3)
