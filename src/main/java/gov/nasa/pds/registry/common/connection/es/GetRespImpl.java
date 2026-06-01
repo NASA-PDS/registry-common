@@ -132,17 +132,13 @@ class GetRespImpl implements Response.Get {
   @Override
   public List<Tuple> dataTypes() throws IOException, DataTypeNotFoundException {
     List<Tuple> dtInfo = new ArrayList<Tuple>();
+    List<String> missing = new ArrayList<String>();
     GetDataTypesResponseParser parser = new GetDataTypesResponseParser();
     List<GetDataTypesResponseParser.Record> records = parser.parse(this.response.getEntity());
-    // Process response (list of fields)
-    boolean missing = false;
     for (GetDataTypesResponseParser.Record rec : records) {
       if (rec.found) {
         dtInfo.add(new Tuple(rec.id, rec.esDataType));
-      }
-      // There is no data type for this field in ES registry-dd index
-      else {
-        // Automatically assign data type for known fields
+      } else {
         if (rec.id.startsWith("ref_lid_") || rec.id.startsWith("ref_lidvid_")
             || rec.id.endsWith("_Area")) {
           dtInfo.add(new Tuple(rec.id, "keyword"));
@@ -152,13 +148,12 @@ class GetRespImpl implements Response.Get {
           log.warn("Could not find datatype for field " + rec.id + ". Will use 'text'");
           dtInfo.add(new Tuple(rec.id, "text"));
         } else {
-          log.error("Could not find datatype for field " + rec.id);
-          missing = true;
+          missing.add(rec.id);
         }
       }
     }
-    if (missing == true)
-      throw new DataTypeNotFoundException();
+    if (!missing.isEmpty())
+      throw new DataTypeNotFoundException(missing, dtInfo);
 
     return dtInfo;
   }
