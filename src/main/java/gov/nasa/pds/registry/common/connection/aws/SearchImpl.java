@@ -96,7 +96,7 @@ class SearchImpl implements Search {
 
 @Override
 public Search buildListLddsNoCache(String namespace) {
-
+    // add a random must_not clause to prevent Elasticsearch from returning cached results. This is needed to ensure that the new LDD is indexed before any other LDDs are loaded (e.g., from other threads) and potentially overwrite the new LDD with an older one. TODO: remove this workaround after we migrate to managed opensearch
     BoolQuery.Builder journeyman = new BoolQuery.Builder()
         .must(this.matchQuery("class_ns", "registry").build(),
             this.matchQuery("class_name", "LDD_Info").build(),
