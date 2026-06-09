@@ -2,8 +2,13 @@ package gov.nasa.pds.registry.common.es.service;
 
 import java.io.File;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
+
+import java.util.Collection;
+import java.util.List;
+import gov.nasa.pds.registry.common.util.Tuple;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -88,9 +93,13 @@ public class JsonLddLoader {
       namespace = LddUtils.getLddNamespace(lddFile);
     }
 
+    // get date of the current LDD for this namespace in the registry. If there is no LDD for this namespace, use epoch date.
+    // TODO add the test of overwrite yes/no, remove it from where it is not >?
+
+
     // Get information about LDDs already loaded into the registry (for this namespace)
     LddVersions info = dao.getLddInfo(namespace);
-    if (info.files.contains(lddFileName)) {
+    if (info.files.contains(lddFileName) ) {
       log.info("This LDD already loaded.");
       return;
     }
@@ -120,6 +129,28 @@ public class JsonLddLoader {
     try {
       createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
       loader.loadFile(tempEsDataFile);
+
+      // check that the new Ldd is indexed by querying for LDD info 
+      // until the new LDD file name appears in the list of loaded LDDs for this namespace. This is needed to ensure that the new LDD is indexed before any other LDDs are loaded (e.g., from other threads) and potentially overwrite the new LDD with an older one.
+      // TODO: remove this check after we migrate to managed opensearch
+      
+ 
+      LddVersions info = dao.getLddInfoNoCache(namespace);
+
+      /* 
+      Collection<String> ids = new ArrayList<String>();
+      ids.add("insight:Observation_Information/insight:stop_local_mean_solar_time"); 
+      List<Tuple> returnedLDDFields = dao.getDataTypes(ids);
+      log.info("Returned LDD field: " + returnedLDDFields.toString());
+      */
+      
+      
+      while (info.isEmpty()) {
+        Thread.sleep(1000);
+        log.info("Waiting for the new LDD " + namespace + " to be indexed...");
+        info = dao.getLddInfoNoCache(namespace);
+      }
+
     } finally {
       // Delete temporary file
       tempEsDataFile.delete();

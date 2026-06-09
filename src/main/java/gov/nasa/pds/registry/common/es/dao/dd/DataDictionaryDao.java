@@ -52,6 +52,24 @@ public class DataDictionaryDao {
     return client.performRequest(req).lddInfo();
   }
 
+    /**
+   * Get LDD date from data dictionary index in Elasticsearch. Force skip the OpenSearch cache.
+   * 
+   * @param namespace LDD namespace, e.g., "pds", "geom", etc.
+   * @return ISO instant class representing LDD date.
+   * @throws IOException
+   * @throws ResponseException
+   * @throws UnsupportedOperationException
+   * @throws Exception an exception
+   */
+  public LddVersions getLddInfoNoCache(String namespace)
+      throws UnsupportedOperationException, IOException {
+    Request.Search req =
+        client.createSearchRequest().buildListLddsNoCache(namespace).setIndex(indexName + "-dd");
+    return client.performRequest(req).lddInfo();
+  }
+  
+
 
   /**
    * List registered LDDs

@@ -52,6 +52,7 @@ public interface Request {
     public Search buildLidvidsFromTermQuery (String fieldname, String value);
     public Search buildListFields(String dataType);
     public Search buildListLdds (String namespace);
+    public Search buildListLddsNoCache (String namespace);
     public Search buildTermQuery (String fieldname, String value);
     public Search buildTermQueryWithoutTermQuery (String yesFieldname, String yesValue, String noFieldname, String noValue);
     public Search buildTheseIds(Collection<String> lids);

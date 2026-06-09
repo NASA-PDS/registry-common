@@ -28,6 +28,14 @@ class SearchImpl implements Search {
     this.json = JsonHelper.buildListLddsRequest(namespace);
     return this;
   }
+
+  @Override
+  public Search buildListLddsNoCache(String namespace) {
+    // not needed since the cache is now disabled in the data dictionary index, but we keep the method for backward compatibility
+    this.json = JsonHelper.buildListLddsRequest(namespace);
+    return this;
+  }
+
   @Override
   public Search buildTheseIds(Collection<String> lids) {
     this.json = JsonHelper.buildSearchIdsRequest(lids, lids.size(), true);
