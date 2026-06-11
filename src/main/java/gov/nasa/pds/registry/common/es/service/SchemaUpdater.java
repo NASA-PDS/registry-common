@@ -4,6 +4,9 @@ package gov.nasa.pds.registry.common.es.service;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -181,15 +184,20 @@ public class SchemaUpdater {
     // Download LDD
     File lddFile;
     try {
-      lddFile = File.createTempFile("LDD-", ".JSON");
-      // Restrict permissions to owner only (mitigate publicly writable temp dir risk)
-      lddFile.setReadable(false, false);
-      lddFile.setReadable(true, true);
-      lddFile.setWritable(false, false);
-      lddFile.setWritable(true, true);
-    } catch (IOException ex) {
-      throw new LddException("Failed to create temp file for LDD download for namespace '"
-          + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
+      // POSIX: creates with rw------- in one atomic step
+      Path lddPath = Files.createTempFile("LDD-", ".JSON",
+          PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+      lddFile = lddPath.toFile();
+    } catch (UnsupportedOperationException | IOException ex) {
+      // Non-POSIX filesystem (e.g. Windows) throws UnsupportedOperationException;
+      // some environments throw IOException when POSIX attrs cannot be applied.
+      // Fall back to a plain temp file in both cases.
+      try {
+        lddFile = File.createTempFile("LDD-", ".JSON");
+      } catch (IOException fallbackEx) {
+        throw new LddException("Failed to create temp file for LDD download for namespace '"
+            + prefix + "': " + ExceptionUtils.getMessage(fallbackEx), fallbackEx);
+      }
     }
 
     try {
