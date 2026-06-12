@@ -159,46 +159,37 @@ public class ClassAttrAssociationParser extends BaseLddParser
     
     private void parseAssoc() throws Exception
     {
+        // The LDD JSON format uses "identifier" (a string) and "isAttribute" (a string "true"/"false")
+        // as sibling fields on each association object. Both must be read before we can decide
+        // whether to emit a callback, so we buffer them and act after the object is fully consumed.
+        String attrId = null;
         boolean isAttribute = false;
-        
+
         jsonReader.beginObject();
-        
+
         while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_OBJECT)
         {
             String name = jsonReader.nextName();
-            if("isAttribute".equals(name))
+            if("identifier".equals(name))
             {
-                String val = jsonReader.nextString();
-                if("true".equals(val))
-                {
-                    isAttribute = true;
-                }
+                attrId = jsonReader.nextString();
             }
-            else if("attributeId".equals(name) && isAttribute)
+            else if("isAttribute".equals(name))
             {
-                parseAttributeIds();
+                isAttribute = "true".equals(jsonReader.nextString());
             }
             else
             {
                 jsonReader.skipValue();
             }
         }
-        
-        jsonReader.endObject();
-    }
 
-    
-    private void parseAttributeIds() throws Exception
-    {
-        jsonReader.beginArray();
-        
-        while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_ARRAY)
+        jsonReader.endObject();
+
+        if(isAttribute && attrId != null)
         {
-            String attrId = jsonReader.nextString();
             cb.onAssociation(classNs, className, attrId);
         }
-        
-        jsonReader.endArray();
     }
     
 }

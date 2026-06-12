@@ -75,6 +75,12 @@ POSSIBILITY OF SUCH DAMAGE.
             <version>6.0.3</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Elasticsearch client-->
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
