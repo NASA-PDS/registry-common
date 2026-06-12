@@ -88,16 +88,20 @@ public class ClassAttrAssociationParser extends BaseLddParser
         itemCount++;
         classNs = null;
         className = null;
-        
+
+        // Collect pending callbacks: "associationList" may appear before "identifier"
+        // in the JSON object, so we buffer resolved attrIds and fire after the object closes.
+        java.util.List<String> pendingAttrIds = new java.util.ArrayList<>();
+
         jsonReader.beginObject();
-        
+
         while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_OBJECT)
         {
             String name = jsonReader.nextName();
             if("identifier".equals(name))
             {
                 String id = jsonReader.nextString();
-                
+
                 String tokens[] = id.split("\\.");
                 if(tokens.length >= 3)
                 {
@@ -111,28 +115,33 @@ public class ClassAttrAssociationParser extends BaseLddParser
             }
             else if("associationList".equals(name))
             {
-                parseAssocList();
+                parseAssocList(pendingAttrIds);
             }
             else
             {
                 jsonReader.skipValue();
             }
         }
-        
+
         jsonReader.endObject();
-        
+
         if(className == null)
         {
             String msg = "Missing identifier in class definition. Index = " + itemCount;
             throw new Exception(msg);
         }
+
+        for(String attrId : pendingAttrIds)
+        {
+            cb.onAssociation(classNs, className, attrId);
+        }
     }
 
 
-    private void parseAssocList() throws Exception
+    private void parseAssocList(java.util.List<String> pendingAttrIds) throws Exception
     {
         jsonReader.beginArray();
-        
+
         while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_ARRAY)
         {
             jsonReader.beginObject();
@@ -142,22 +151,22 @@ public class ClassAttrAssociationParser extends BaseLddParser
                 String name = jsonReader.nextName();
                 if("association".equals(name))
                 {
-                    parseAssoc();
+                    parseAssoc(pendingAttrIds);
                 }
                 else
                 {
                     jsonReader.skipValue();
                 }
             }
-            
+
             jsonReader.endObject();
         }
-        
+
         jsonReader.endArray();
     }
 
-    
-    private void parseAssoc() throws Exception
+
+    private void parseAssoc(java.util.List<String> pendingAttrIds) throws Exception
     {
         // LDD JSON format varies by IM version:
         //   IM <= 1.24: "identifier" (string) only
@@ -230,14 +239,11 @@ public class ClassAttrAssociationParser extends BaseLddParser
 
         if(attributeIds != null && !attributeIds.isEmpty())
         {
-            for(String attrId : attributeIds)
-            {
-                cb.onAssociation(classNs, className, attrId);
-            }
+            pendingAttrIds.addAll(attributeIds);
         }
         else if(identifierFallback != null)
         {
-            cb.onAssociation(classNs, className, identifierFallback);
+            pendingAttrIds.add(identifierFallback);
         }
     }
     
