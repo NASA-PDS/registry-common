@@ -178,20 +178,28 @@ public class ClassAttrAssociationParser extends BaseLddParser
                 // In IM >= 1.25 this is an array. Elements are strings for attribute
                 // associations but objects for parent_of/generalization associations;
                 // skip non-string elements so we don't fail on those entries.
-                attributeIds = new java.util.ArrayList<>();
-                jsonReader.beginArray();
-                while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_ARRAY)
+                // Guard with peek() in case a future IM version changes the value type.
+                if(jsonReader.peek() == JsonToken.BEGIN_ARRAY)
                 {
-                    if(jsonReader.peek() == JsonToken.STRING)
+                    attributeIds = new java.util.ArrayList<>();
+                    jsonReader.beginArray();
+                    while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_ARRAY)
                     {
-                        attributeIds.add(jsonReader.nextString());
+                        if(jsonReader.peek() == JsonToken.STRING)
+                        {
+                            attributeIds.add(jsonReader.nextString());
+                        }
+                        else
+                        {
+                            jsonReader.skipValue();
+                        }
                     }
-                    else
-                    {
-                        jsonReader.skipValue();
-                    }
+                    jsonReader.endArray();
                 }
-                jsonReader.endArray();
+                else
+                {
+                    jsonReader.skipValue();
+                }
             }
             else if("identifier".equals(name))
             {
@@ -199,7 +207,16 @@ public class ClassAttrAssociationParser extends BaseLddParser
             }
             else if("isAttribute".equals(name))
             {
-                isAttribute = "true".equals(jsonReader.nextString());
+                // Handle both string "true"/"false" and native JSON boolean
+                JsonToken tok = jsonReader.peek();
+                if(tok == JsonToken.BOOLEAN)
+                {
+                    isAttribute = jsonReader.nextBoolean();
+                }
+                else
+                {
+                    isAttribute = "true".equals(jsonReader.nextString());
+                }
             }
             else
             {
