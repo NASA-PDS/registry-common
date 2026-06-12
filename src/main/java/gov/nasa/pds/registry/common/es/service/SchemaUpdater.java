@@ -195,6 +195,7 @@ public class SchemaUpdater {
       try {
         lddFile = File.createTempFile("LDD-", ".JSON");
       } catch (IOException fallbackEx) {
+        fallbackEx.addSuppressed(ex);
         throw new LddException("Failed to create temp file for LDD download for namespace '"
             + prefix + "': " + ExceptionUtils.getMessage(fallbackEx), fallbackEx);
       }
