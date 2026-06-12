@@ -66,9 +66,24 @@ public class TestLddFieldResolution {
                     "mro:CRISM_Parameters/mro:observation_number",          "keyword",
                     "mro:MRO_Parameters/mro:product_type",                  "keyword"
                 )
+            ),
+            // CART 1Q00_1970 — IM >= 1.25, has both "attributeId" array and "identifier"; exercises
+            // the attributeId path that older LDDs lack.
+            new LddTestCase(
+                "CART 1Q00_1970",
+                "https://pds.nasa.gov/pds4/cart/v1/PDS4_CART_1Q00_1970.xsd",
+                Map.of(
+                    "cart:Bounding_Coordinates/cart:west_bounding_coordinate", "double",
+                    "cart:Bounding_Coordinates/cart:east_bounding_coordinate", "double",
+                    "cart:Bounding_Coordinates/cart:north_bounding_coordinate", "double",
+                    "cart:Bounding_Coordinates/cart:south_bounding_coordinate", "double",
+                    "cart:Geodetic_Model/cart:latitude_type",                   "keyword",
+                    "cart:Geodetic_Model/cart:spheroid_name",                   "keyword",
+                    "cart:Geodetic_Model/cart:a_axis_radius",                   "double",
+                    "cart:Geodetic_Model/cart:longitude_direction",             "keyword"
+                )
             )
-            // Add more LDD test cases here as new namespaces are validated, e.g.:
-            // new LddTestCase("CART ...", "https://pds.nasa.gov/pds4/.../PDS4_CART_....xsd", Map.of(...))
+            // Add more LDD test cases here as new namespaces are validated.
         );
     }
 

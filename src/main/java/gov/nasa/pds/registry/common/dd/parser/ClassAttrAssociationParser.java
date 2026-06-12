@@ -159,10 +159,13 @@ public class ClassAttrAssociationParser extends BaseLddParser
     
     private void parseAssoc() throws Exception
     {
-        // The LDD JSON format uses "identifier" (a string) and "isAttribute" (a string "true"/"false")
-        // as sibling fields on each association object. Both must be read before we can decide
-        // whether to emit a callback, so we buffer them and act after the object is fully consumed.
-        String attrId = null;
+        // LDD JSON format varies by IM version:
+        //   IM <= 1.24: "identifier" (string) only
+        //   IM >= 1.25: both "attributeId" (array) and "identifier" (string) are present
+        // Prefer "attributeId" when present; fall back to "identifier".
+        // All fields must be buffered before we can act because field order is not guaranteed.
+        String identifierFallback = null;
+        java.util.List<String> attributeIds = null;
         boolean isAttribute = false;
 
         jsonReader.beginObject();
@@ -170,9 +173,29 @@ public class ClassAttrAssociationParser extends BaseLddParser
         while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_OBJECT)
         {
             String name = jsonReader.nextName();
-            if("identifier".equals(name))
+            if("attributeId".equals(name))
             {
-                attrId = jsonReader.nextString();
+                // In IM >= 1.25 this is an array. Elements are strings for attribute
+                // associations but objects for parent_of/generalization associations;
+                // skip non-string elements so we don't fail on those entries.
+                attributeIds = new java.util.ArrayList<>();
+                jsonReader.beginArray();
+                while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_ARRAY)
+                {
+                    if(jsonReader.peek() == JsonToken.STRING)
+                    {
+                        attributeIds.add(jsonReader.nextString());
+                    }
+                    else
+                    {
+                        jsonReader.skipValue();
+                    }
+                }
+                jsonReader.endArray();
+            }
+            else if("identifier".equals(name))
+            {
+                identifierFallback = jsonReader.nextString();
             }
             else if("isAttribute".equals(name))
             {
@@ -186,9 +209,18 @@ public class ClassAttrAssociationParser extends BaseLddParser
 
         jsonReader.endObject();
 
-        if(isAttribute && attrId != null)
+        if(!isAttribute) return;
+
+        if(attributeIds != null && !attributeIds.isEmpty())
         {
-            cb.onAssociation(classNs, className, attrId);
+            for(String attrId : attributeIds)
+            {
+                cb.onAssociation(classNs, className, attrId);
+            }
+        }
+        else if(identifierFallback != null)
+        {
+            cb.onAssociation(classNs, className, identifierFallback);
         }
     }
     
