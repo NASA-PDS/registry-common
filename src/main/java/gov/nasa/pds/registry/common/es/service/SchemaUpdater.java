@@ -139,6 +139,9 @@ public class SchemaUpdater {
         }
       }
       if (!newFields.isEmpty()) {
+        for (Tuple field : newFields) {
+          log.debug("Registering field in OpenSearch schema: {} ({})", field.item1, field.item2);
+        }
         schemaDao.updateSchema(newFields);
         log.debug("Updated " + newFields.size() + " fields in OpenSearch mapping for index "
             + this.index);
