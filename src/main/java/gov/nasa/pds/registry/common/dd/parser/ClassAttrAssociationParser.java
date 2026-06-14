@@ -1,6 +1,8 @@
 package gov.nasa.pds.registry.common.dd.parser;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import com.google.gson.stream.JsonToken;
 
 
@@ -91,7 +93,7 @@ public class ClassAttrAssociationParser extends BaseLddParser
 
         // Collect pending callbacks: "associationList" may appear before "identifier"
         // in the JSON object, so we buffer resolved attrIds and fire after the object closes.
-        java.util.List<String> pendingAttrIds = new java.util.ArrayList<>();
+        List<String> pendingAttrIds = new ArrayList<>();
 
         jsonReader.beginObject();
 
@@ -138,7 +140,7 @@ public class ClassAttrAssociationParser extends BaseLddParser
     }
 
 
-    private void parseAssocList(java.util.List<String> pendingAttrIds) throws Exception
+    private void parseAssocList(List<String> pendingAttrIds) throws Exception
     {
         jsonReader.beginArray();
 
@@ -166,7 +168,7 @@ public class ClassAttrAssociationParser extends BaseLddParser
     }
 
 
-    private void parseAssoc(java.util.List<String> pendingAttrIds) throws Exception
+    private void parseAssoc(List<String> pendingAttrIds) throws Exception
     {
         // LDD JSON format varies by IM version:
         //   IM <= 1.24: "identifier" (string) only
@@ -174,7 +176,7 @@ public class ClassAttrAssociationParser extends BaseLddParser
         // Prefer "attributeId" when present; fall back to "identifier".
         // All fields must be buffered before we can act because field order is not guaranteed.
         String identifierFallback = null;
-        java.util.List<String> attributeIds = null;
+        List<String> attributeIds = null;
         boolean isAttribute = false;
 
         jsonReader.beginObject();
@@ -190,7 +192,7 @@ public class ClassAttrAssociationParser extends BaseLddParser
                 // Guard with peek() in case a future IM version changes the value type.
                 if(jsonReader.peek() == JsonToken.BEGIN_ARRAY)
                 {
-                    attributeIds = new java.util.ArrayList<>();
+                    attributeIds = new ArrayList<>();
                     jsonReader.beginArray();
                     while(jsonReader.hasNext() && jsonReader.peek() != JsonToken.END_ARRAY)
                     {
