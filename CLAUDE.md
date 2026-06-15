@@ -114,6 +114,11 @@ The library provides a unified `Request` and `Response` interface that abstracts
 - Builds publish to Maven Central via Sonatype Central Portal
 - Requires secrets: `CENTRAL_REPOSITORY_USERNAME`, `CENTRAL_REPOSITORY_TOKEN`, `CODE_SIGNING_KEY`
 
+## Critical Invariants
+
+**Schema field must exist before metadata is loaded:**
+Every metadata field written to the registry index MUST have a corresponding schema field (Elasticsearch/OpenSearch mapping) created from the LDD. Loading metadata for a field without a known ES data type is strictly forbidden — it leads to dynamic mapping that makes fields unsearchable and corrupts the index schema. If the LDD JSON does not contain a resolvable data type for an attribute (either the attribute is missing from the `attributeDictionary`, or its PDS data type cannot be mapped to an ES type), the LDD load MUST fail with an exception. Never silently skip, warn-and-continue, or fall back to dynamic mapping.
+
 ## Important Patterns
 
 **Metadata field naming:**
