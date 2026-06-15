@@ -2,13 +2,8 @@ package gov.nasa.pds.registry.common.es.service;
 
 import java.io.File;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
-
-import java.util.Collection;
-import java.util.List;
-import gov.nasa.pds.registry.common.util.Tuple;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -99,7 +94,7 @@ public class JsonLddLoader {
 
     // Get information about LDDs already loaded into the registry (for this namespace)
     LddVersions info = dao.getLddInfo(namespace);
-    if (info.files.contains(lddFileName) ) {
+    if (info.files.contains(lddFileName)) {
       log.info("This LDD already loaded.");
       return;
     }
