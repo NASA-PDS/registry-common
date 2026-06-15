@@ -11,7 +11,7 @@ import gov.nasa.pds.registry.common.RestClient;
 import gov.nasa.pds.registry.common.util.Tuple;
 
 
-/**
+  /**
  * Data dictionary DAO (Data Access Object). This class provides methods to read and update data
  * dictionary.
  * 
@@ -129,4 +129,3 @@ public class DataDictionaryDao {
   }
 
 }
-
