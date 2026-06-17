@@ -4,6 +4,9 @@ package gov.nasa.pds.registry.common.es.service;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,6 +25,7 @@ import gov.nasa.pds.registry.common.util.file.FileDownloader;
 import gov.nasa.pds.registry.common.util.Tuple;
 
 import gov.nasa.pds.registry.common.es.dao.dd.DataDictionaryDao;
+import gov.nasa.pds.registry.common.es.dao.dd.DataTypeNotFoundException;
 import gov.nasa.pds.registry.common.ConnectionFactory;
 import gov.nasa.pds.registry.common.es.dao.schema.SchemaDao;
 import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
@@ -116,12 +120,28 @@ public class SchemaUpdater {
         }
       }
       if (!ddFields.isEmpty()) {
-        List<Tuple> ddTypes = ddDao.getDataTypes(ddFields);
-        if (ddTypes != null) {
-          newFields.addAll(ddTypes);
+        try {
+          List<Tuple> ddTypes = ddDao.getDataTypes(ddFields);
+          if (ddTypes != null) {
+            newFields.addAll(ddTypes);
+          }
+        } catch (DataTypeNotFoundException ex) {
+          if (!forceLoad) {
+            for (String f : ex.getMissingFields()) {
+              log.error("Could not find the data type for the field {}", f);
+            }
+            throw ex;
+          }
+          log.warn("Force mode: could not find data types for fields {} - these fields will not be indexed or searchable. Product will still be ingested.", ex.getMissingFields());
+          if (!ex.getFoundTypes().isEmpty()) {
+            newFields.addAll(ex.getFoundTypes());
+          }
         }
       }
       if (!newFields.isEmpty()) {
+        for (Tuple field : newFields) {
+          log.debug("Registering field in OpenSearch schema: {} ({})", field.item1, field.item2);
+        }
         schemaDao.updateSchema(newFields);
         log.debug("Updated " + newFields.size() + " fields in OpenSearch mapping for index "
             + this.index);
@@ -165,18 +185,7 @@ public class SchemaUpdater {
     }
 
     // Download LDD
-    File lddFile;
-    try {
-      lddFile = File.createTempFile("LDD-", ".JSON");
-      // Restrict permissions to owner only (mitigate publicly writable temp dir risk)
-      lddFile.setReadable(false, false);
-      lddFile.setReadable(true, true);
-      lddFile.setWritable(false, false);
-      lddFile.setWritable(true, true);
-    } catch (IOException ex) {
-      throw new LddException("Failed to create temp file for LDD download for namespace '"
-          + prefix + "': " + ExceptionUtils.getMessage(ex), ex);
-    }
+    File lddFile = createLddTempFile(prefix);
 
     try {
       if (fileDownloader.download(jsonUrl, lddFile)) {
@@ -251,6 +260,27 @@ public class SchemaUpdater {
    * Apply any cached domain redirect to a URL. If the URL's host has a known
    * redirect (e.g. isda.issdc.gov.in → pds.nasa.gov), return the rewritten URL.
    */
+  /**
+   * Creates a temp file for LDD download. Tries POSIX permissions first (rw-------); falls back to
+   * a plain temp file on non-POSIX filesystems (e.g. Windows NTFS) that throw
+   * UnsupportedOperationException or IOException when POSIX attributes are applied.
+   */
+  public static File createLddTempFile(String prefix) throws LddException {
+    try {
+      return Files.createTempFile("LDD-", ".JSON",
+          PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))).toFile();
+    } catch (UnsupportedOperationException | IOException ex) {
+      try {
+        return File.createTempFile("LDD-", ".JSON");
+      } catch (IOException fallbackEx) {
+        fallbackEx.addSuppressed(ex);
+        throw new LddException("Failed to create temp file for LDD download for namespace '"
+            + prefix + "': " + ExceptionUtils.getMessage(fallbackEx), fallbackEx);
+      }
+    }
+  }
+
+
   private String applyDomainRedirect(String url) {
     try {
       String host = new URL(url).getHost();
