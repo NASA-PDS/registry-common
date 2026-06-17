@@ -2,6 +2,7 @@ package gov.nasa.pds.registry.common.es.service;
 
 import java.io.File;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -16,6 +17,7 @@ import gov.nasa.pds.registry.common.dd.parser.ClassAttrAssociationParser;
 import gov.nasa.pds.registry.common.dd.parser.DDAttribute;
 import gov.nasa.pds.registry.common.es.dao.DataLoader;
 import gov.nasa.pds.registry.common.es.dao.dd.DataDictionaryDao;
+import gov.nasa.pds.registry.common.es.dao.dd.DataTypeNotFoundException;
 import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
 
 
@@ -122,28 +124,40 @@ public class JsonLddLoader {
     log.info("Creating temporary ES data file " + tempEsDataFile.getAbsolutePath());
 
     try {
-      createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
+      String firstFieldId = createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
       loader.loadFile(tempEsDataFile);
 
-      // check that the new Ldd is indexed by querying for LDD info 
-      // until the new LDD file name appears in the list of loaded LDDs for this namespace. This is needed to ensure that the new LDD is indexed before any other LDDs are loaded (e.g., from other threads) and potentially overwrite the new LDD with an older one.
-      // TODO: remove this check after we migrate to managed opensearch
-      
- 
+      // Wait until the LDD_Info sentinel is visible (search with requestCache=false).
+      // This confirms the bulk load completed on the server side.
       LddVersions info = dao.getLddInfoNoCache(namespace);
-
-      /* 
-      Collection<String> ids = new ArrayList<String>();
-      ids.add("insight:Observation_Information/insight:stop_local_mean_solar_time"); 
-      List<Tuple> returnedLDDFields = dao.getDataTypes(ids);
-      log.info("Returned LDD field: " + returnedLDDFields.toString());
-      */
-      
-      
-      while (info.isEmpty()) {
+      int nAttempts = 0;
+      int maxAttempts = 30;
+      while (info.isEmpty() && nAttempts < maxAttempts) {
         Thread.sleep(1000);
-        log.info("Waiting for the new LDD " + namespace + " to be indexed...");
+        log.info("Waiting for the new LDD {} to be indexed...", namespace);
         info = dao.getLddInfoNoCache(namespace);
+      }
+
+      if (info.isEmpty()) {
+        log.warn("The new LDD {} is not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.", namespace, maxAttempts);
+      } else {
+        log.info("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
+      }
+
+      // On AWS OpenSearch Serverless (AOSS), mget and search use different visibility paths.
+      // Wait until a specific field document is also visible via mget with refresh=true,
+      // so that getDataTypes() calls immediately following this load will succeed.
+      if (firstFieldId != null) {
+        boolean fieldVisible = false;
+        while (!fieldVisible) {
+          try {
+            dao.getDataTypesWithRefresh(Collections.singletonList(firstFieldId));
+            fieldVisible = true;
+          } catch (DataTypeNotFoundException e) {
+            Thread.sleep(1000);
+            log.info("Waiting for field {} of namespace {} to be visible via mget...", firstFieldId, namespace);
+          }
+        }
       }
 
     } finally {
@@ -154,15 +168,30 @@ public class JsonLddLoader {
 
 
   private static class CaaCallback implements ClassAttrAssociationParser.Callback {
-    private LddEsJsonWriter writer;
+    private final LddEsJsonWriter writer;
+    private final String namespace;
+    private final Map<String, DDAttribute> ddAttrCache;
+    private String firstFieldId;
 
-    public CaaCallback(LddEsJsonWriter writer) {
+    public CaaCallback(LddEsJsonWriter writer, String namespace, Map<String, DDAttribute> ddAttrCache) {
       this.writer = writer;
+      this.namespace = namespace;
+      this.ddAttrCache = ddAttrCache;
     }
 
     @Override
     public void onAssociation(String classNs, String className, String attrId) throws Exception {
       writer.writeFieldDefinition(classNs, className, attrId);
+      if (firstFieldId == null && namespace.equals(classNs)) {
+        DDAttribute attr = ddAttrCache.get(attrId);
+        if (attr != null) {
+          firstFieldId = classNs + ":" + className + "/" + attr.attrNs + ":" + attr.attrName;
+        }
+      }
+    }
+
+    public String getFirstFieldId() {
+      return firstFieldId;
     }
   }
 
@@ -175,7 +204,7 @@ public class JsonLddLoader {
    * @param tempEsFile Write to this Elasticsearch file
    * @throws Exception an exception
    */
-  private void createEsDataFile(File lddFile, String lddFileName, String namespace, File tempEsFile,
+  private String createEsDataFile(File lddFile, String lddFileName, String namespace, File tempEsFile,
       Instant lastDate) throws Exception {
     // Parse and cache LDD attributes
     Map<String, DDAttribute> ddAttrCache = new TreeMap<>();
@@ -195,13 +224,15 @@ public class JsonLddLoader {
       writer.setNamespaceFilter(namespace);
 
       // Parse class attribute associations and write to ES data file
-      CaaCallback ccb = new CaaCallback(writer);
+      CaaCallback ccb = new CaaCallback(writer, namespace, ddAttrCache);
       ClassAttrAssociationParser caaParser = new ClassAttrAssociationParser(lddFile, ccb);
       caaParser.parse();
 
       // Write data dictionary version and date
       writer.writeLddInfo(namespace, lddFileName, attrParser.getImVersion(),
           attrParser.getLddVersion(), attrParser.getLddDate());
+
+      return ccb.getFirstFieldId();
     } finally {
       writer.close();
     }

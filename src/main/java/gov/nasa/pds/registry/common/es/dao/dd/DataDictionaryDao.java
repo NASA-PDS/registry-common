@@ -128,4 +128,19 @@ public class DataDictionaryDao {
     return this.client.performRequest(req).dataTypes();
   }
 
+  /**
+   * Same as getDataTypes but forces a shard refresh before the mget. Use only in targeted wait
+   * loops after bulk loading an LDD — do not use in normal query paths.
+   */
+  public List<Tuple> getDataTypesWithRefresh(Collection<String> ids)
+      throws IOException, DataTypeNotFoundException {
+    if (ids == null || ids.isEmpty())
+      return null;
+    Request.MGet mgetReq = client.createMGetRequest();
+    mgetReq.setRefresh(true);
+    Request.Get req = mgetReq.setIds(ids).includeField("es_data_type")
+        .setIndex(this.indexName + "-dd");
+    return this.client.performRequest(req).dataTypes();
+  }
+
 }

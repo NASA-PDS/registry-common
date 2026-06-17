@@ -17,7 +17,6 @@ import java.util.zip.ZipFile;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 
 import gov.nasa.pds.registry.common.ConnectionFactory;
 import gov.nasa.pds.registry.common.Request;

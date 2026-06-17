@@ -41,6 +41,7 @@ public interface Request {
   }
   public interface MGet extends Get { // _mget
     public MGet setIds (Collection<String> ids);
+    public MGet setRefresh (boolean refresh);
   }
   public interface Search { // _search
     public Search all(String sortField, int size, String searchAfter);
