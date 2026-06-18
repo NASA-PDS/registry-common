@@ -91,13 +91,12 @@ class SearchImpl implements Search {
     return this;
   }
 
-@Override
-public Search buildListLddsNoCache(String namespace) {
+  @Override
+  public Search buildListLddsNoCache(String namespace) {
     BoolQuery.Builder journeyman = new BoolQuery.Builder()
         .must(this.matchQuery("class_ns", "registry").build(),
             this.matchQuery("class_name", "LDD_Info").build(),
             this.matchQuery("attr_ns", namespace).build());
-        // .mustNot(this.matchQuery("xxxxxxxxxnotexisting", String.valueOf(rand.nextInt())).build());
     this.craftsman.query(new Query.Builder().bool(journeyman.build()).build());
     this.craftsman.requestCache(false);
     this.craftsman.size(1000); // have no idea why hardcoded but it is (.es.JsonHelper:265

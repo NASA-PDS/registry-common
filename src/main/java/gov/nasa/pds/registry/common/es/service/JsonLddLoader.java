@@ -142,8 +142,7 @@ public class JsonLddLoader {
         log.warn("The new LDD {} is not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.", namespace, maxAttempts);
       } else {
         log.info("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
-      }
-
+     
       // On AWS OpenSearch Serverless (AOSS), mget and search use different visibility paths.
       // Wait until a specific field document is also visible via mget with refresh=true,
       // so that getDataTypes() calls immediately following this load will succeed.
@@ -159,7 +158,8 @@ public class JsonLddLoader {
           }
         }
       }
-
+      log.info("Visibility of namespace " + namespace + "has been fully validated.");
+    }
     } finally {
       // Delete temporary file
       tempEsDataFile.delete();
