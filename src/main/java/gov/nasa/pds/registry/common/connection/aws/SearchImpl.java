@@ -3,6 +3,7 @@ package gov.nasa.pds.registry.common.connection.aws;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+
 import org.opensearch.client.opensearch._types.FieldSort;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.SortOptions;
@@ -26,6 +27,7 @@ import gov.nasa.pds.registry.common.Request.Search;
 
 class SearchImpl implements Search {
   final SearchRequest.Builder craftsman = new SearchRequest.Builder();
+
   private void buildIds (Collection<String> lids, boolean alt) {
     SourceConfig.Builder journeyman = new SourceConfig.Builder();
     if (alt) {
@@ -88,6 +90,20 @@ class SearchImpl implements Search {
     this.craftsman.source(new SourceConfig.Builder().filter(new SourceFilter.Builder().includes("date", "attr_name").build()).build());
     return this;
   }
+
+  @Override
+  public Search buildListLddsNoCache(String namespace) {
+    BoolQuery.Builder journeyman = new BoolQuery.Builder()
+        .must(this.matchQuery("class_ns", "registry").build(),
+            this.matchQuery("class_name", "LDD_Info").build(),
+            this.matchQuery("attr_ns", namespace).build());
+    this.craftsman.query(new Query.Builder().bool(journeyman.build()).build());
+    this.craftsman.requestCache(false);
+    this.craftsman.size(1000); // have no idea why hardcoded but it is (.es.JsonHelper:265
+    this.craftsman.source(new SourceConfig.Builder().filter(new SourceFilter.Builder().includes("date", "attr_name").build()).build());
+    return this;
+  }
+
   @Override
   public Search buildTheseIds(Collection<String> lids) {
     this.buildIds(lids, false);

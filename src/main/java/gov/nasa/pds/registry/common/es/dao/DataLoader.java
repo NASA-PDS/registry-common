@@ -268,6 +268,7 @@ public class DataLoader {
         bulk.add(item.getKey(), item.getValue());
       }
       Response.Bulk response = this.conFactory.createRestClient().performRequest(bulk);
+            
       failed += processErrors(response, errorLidvids, todo, retry);
       retry++;
 
