@@ -1,8 +1,8 @@
 # Changelog
 
-## [«unknown»](https://github.com/NASA-PDS/registry-common/tree/«unknown») (2026-06-18)
+## [release/2.4.4](https://github.com/NASA-PDS/registry-common/tree/release/2.4.4) (2026-06-18)
 
-[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.4.3...«unknown»)
+[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.4.3...release/2.4.4)
 
 **Improvements:**
 
