@@ -153,6 +153,16 @@ class SearchRespWrap implements Response.Search {
     return docs;
   }
   @Override
+  public String lastSortValue() throws UnsupportedOperationException, IOException {
+    List<Hit<Object>> hits = this.parent.hits().hits();
+    if (hits == null || hits.isEmpty()) return null;
+    Hit<Object> last = hits.get(hits.size() - 1);
+    List<org.opensearch.client.opensearch._types.FieldValue> sortValues = last.sort();
+    if (sortValues == null || sortValues.isEmpty()) return null;
+    org.opensearch.client.opensearch._types.FieldValue fv = sortValues.get(0);
+    return fv.isString() ? fv.stringValue() : fv._toJsonString();
+  }
+  @Override
   public List<String> bucketValues() {
     ArrayList<String> keys =  new ArrayList<String>();
     for (StringTermsBucket bucket : this.parent.aggregations().get("duplicates").sterms().buckets().array()) {
