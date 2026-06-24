@@ -74,7 +74,7 @@ public class DataLoader {
    * @throws Exception an exception
    */
   public void loadFile(File file) throws Exception {
-    log.info("Loading ES data file: " + file.getAbsolutePath());
+    log.debug("Loading ES data file: " + file.getAbsolutePath());
 
     BufferedReader rd = new BufferedReader(new FileReader(file));
     loadData(rd);
@@ -89,7 +89,7 @@ public class DataLoader {
    * @throws Exception an exception
    */
   public void loadZippedFile(File zipFile, String fileName) throws Exception {
-    log.info("Loading ES data file: " + zipFile.getAbsolutePath() + ":" + fileName);
+    log.debug("Loading ES data file: " + zipFile.getAbsolutePath() + ":" + fileName);
 
     ZipFile zip = new ZipFile(zipFile);
 
@@ -124,11 +124,11 @@ public class DataLoader {
 
       while ((firstLine = loadBatch(rd, firstLine)) != null) {
         if (totalRecords % printProgressSize == 0) {
-          log.info("Loaded " + totalRecords + " document(s)");
+          log.debug("Loaded " + totalRecords + " document(s)");
         }
       }
 
-      log.info("Loaded " + totalRecords + " document(s)");
+      log.debug("Loaded " + totalRecords + " document(s)");
     } finally {
       CloseUtils.close(rd);
     }
