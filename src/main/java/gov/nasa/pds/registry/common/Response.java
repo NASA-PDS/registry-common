@@ -56,6 +56,8 @@ public interface Response {
     public LddVersions lddInfo() throws UnsupportedOperationException, IOException;
     public List<LddInfo> ldds() throws UnsupportedOperationException, IOException;
     public Set<String> nonExistingIds(Collection<String> from_ids) throws UnsupportedOperationException, IOException;
+    /** Returns the sort value of the last hit, for use as the search_after cursor in the next page request. Returns null if there are no hits. */
+    public String lastSortValue() throws UnsupportedOperationException, IOException;
   }
   public interface Settings {
     public int replicas();

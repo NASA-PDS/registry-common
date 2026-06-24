@@ -121,7 +121,7 @@ public class JsonLddLoader {
       throws Exception {
     // Create and load temporary data file into Elasticsearch
     File tempEsDataFile = File.createTempFile("es-", ".json");
-    log.info("Creating temporary ES data file " + tempEsDataFile.getAbsolutePath());
+    log.debug("Creating temporary ES data file " + tempEsDataFile.getAbsolutePath());
 
     try {
       String firstFieldId = createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
@@ -134,14 +134,19 @@ public class JsonLddLoader {
       int maxAttempts = 30;
       while (info.isEmpty() && nAttempts < maxAttempts) {
         Thread.sleep(1000);
-        log.info("Waiting for the new LDD {} to be indexed...", namespace);
+        nAttempts++;
+        if (nAttempts % 60 == 0) {
+          log.info("Waiting for the new LDD {} to be indexed... ({} seconds elapsed)", namespace, nAttempts);
+        } else {
+          log.debug("Waiting for the new LDD {} to be indexed... ({} seconds elapsed)", namespace, nAttempts);
+        }
         info = dao.getLddInfoNoCache(namespace);
       }
 
       if (info.isEmpty()) {
         log.warn("The new LDD {} is not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.", namespace, maxAttempts);
       } else {
-        log.info("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
+        log.debug("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
      
       // On AWS OpenSearch Serverless (AOSS), mget and search use different visibility paths.
       // Wait until a specific field document is also visible via mget with refresh=true,
@@ -154,11 +159,11 @@ public class JsonLddLoader {
             fieldVisible = true;
           } catch (DataTypeNotFoundException e) {
             Thread.sleep(1000);
-            log.info("Waiting for field {} of namespace {} to be visible via mget...", firstFieldId, namespace);
+            log.debug("Waiting for field {} of namespace {} to be visible via mget...", firstFieldId, namespace);
           }
         }
       }
-      log.info("Visibility of namespace " + namespace + "has been fully validated.");
+      log.debug("Visibility of namespace " + namespace + " has been fully validated.");
     }
     } finally {
       // Delete temporary file

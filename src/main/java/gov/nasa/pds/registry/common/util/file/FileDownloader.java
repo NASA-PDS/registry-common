@@ -114,7 +114,7 @@ public class FileDownloader
         FileOutputStream os = null;
         CloseableHttpResponse resp = null;
         
-        log.info("Downloading " + fromUrl + " to " + toFile.getAbsolutePath());
+        log.debug("Downloading " + fromUrl + " to " + toFile.getAbsolutePath());
         
         try
         {

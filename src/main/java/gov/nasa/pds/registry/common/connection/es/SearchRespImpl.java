@@ -18,10 +18,13 @@ import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
 class SearchRespImpl implements Response.Search {
   private static class BatchObjects implements SearchResponseParser.Callback {
     final ArrayList<Object> content = new ArrayList<Object>();
+    String lastId;
     public void onRecord(String id, Object rec) {
       content.add(rec);
+      lastId = id;
     }
   }
+  private BatchObjects cachedBatch;
   private static class FieldNameFinder implements SearchResponseParser.Callback {
     final private String fieldName;
     boolean found = false;
@@ -169,10 +172,17 @@ class SearchRespImpl implements Response.Search {
   }
   @Override
   public List<Object> batch() throws UnsupportedOperationException, IOException {
-    BatchObjects content = new BatchObjects();
-    SearchResponseParser parser = new SearchResponseParser();
-    parser.parseResponse(this.response, content);
-    return content.content;
+    if (cachedBatch == null) {
+      cachedBatch = new BatchObjects();
+      SearchResponseParser parser = new SearchResponseParser();
+      parser.parseResponse(this.response, cachedBatch);
+    }
+    return cachedBatch.content;
+  }
+  @Override
+  public String lastSortValue() throws UnsupportedOperationException, IOException {
+    batch(); // ensure batch is parsed and cachedBatch.lastId is populated
+    return cachedBatch.lastId;
   }
   @Override
   public List<Map<String, Object>> documents() {
