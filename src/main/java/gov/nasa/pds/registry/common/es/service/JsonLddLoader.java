@@ -3,7 +3,9 @@ package gov.nasa.pds.registry.common.es.service;
 import java.io.File;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import org.apache.logging.log4j.LogManager;
@@ -33,6 +35,7 @@ public class JsonLddLoader {
   private DataLoader loader;
 
   private DataDictionaryDao dao;
+  private final Set<String> loadedThisRun = new HashSet<>();
 
   /**
    * Constructor
@@ -94,15 +97,25 @@ public class JsonLddLoader {
     // TODO add the test of overwrite yes/no, remove it from where it is not >?
 
 
+    // Short-circuit: if we already loaded this LDD file in this JVM run, skip the
+    // AOSS query entirely. This prevents re-downloads when the LDD_Info sentinel is
+    // not yet visible via search immediately after a bulk load (AOSS propagation lag).
+    if (loadedThisRun.contains(lddFileName)) {
+      log.debug("LDD {} already loaded in this run, skipping.", lddFileName);
+      return;
+    }
+
     // Get information about LDDs already loaded into the registry (for this namespace)
     LddVersions info = dao.getLddInfo(namespace);
     if (info.files.contains(lddFileName)) {
-      log.info("This LDD already loaded.");
+      log.debug("LDD {} already loaded in registry.", lddFileName);
+      loadedThisRun.add(lddFileName);
       return;
     }
 
     // Create and load temporary data file into Elasticsearch
     loadOnly(lddFile, lddFileName, namespace, info.lastDate);
+    loadedThisRun.add(lddFileName);
   }
 
 

@@ -120,21 +120,42 @@ public class SchemaUpdater {
         }
       }
       if (!ddFields.isEmpty()) {
-        try {
-          List<Tuple> ddTypes = ddDao.getDataTypes(ddFields);
-          if (ddTypes != null) {
-            newFields.addAll(ddTypes);
+        // Retry loop: AOSS may not yet have made all documents from a just-completed
+        // bulk LDD load visible via mget, even after the per-field visibility wait in
+        // JsonLddLoader. Retry for up to 30 seconds before giving up.
+        final int maxRetrySeconds = 30;
+        int retrySeconds = 0;
+        DataTypeNotFoundException lastEx = null;
+        while (retrySeconds <= maxRetrySeconds) {
+          try {
+            List<Tuple> ddTypes = ddDao.getDataTypes(ddFields);
+            if (ddTypes != null) {
+              newFields.addAll(ddTypes);
+            }
+            lastEx = null;
+            break;
+          } catch (DataTypeNotFoundException ex) {
+            lastEx = ex;
+            if (retrySeconds < maxRetrySeconds) {
+              log.debug("Fields {} not yet visible in -dd index, retrying in 1s ({}/{}s)...",
+                  ex.getMissingFields(), retrySeconds + 1, maxRetrySeconds);
+              try { Thread.sleep(1000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+              retrySeconds++;
+            } else {
+              break;
+            }
           }
-        } catch (DataTypeNotFoundException ex) {
+        }
+        if (lastEx != null) {
           if (!forceLoad) {
-            for (String f : ex.getMissingFields()) {
+            for (String f : lastEx.getMissingFields()) {
               log.error("Could not find the data type for the field {}", f);
             }
-            throw ex;
+            throw lastEx;
           }
-          log.warn("Force mode: could not find data types for fields {} - these fields will not be indexed or searchable. Product will still be ingested.", ex.getMissingFields());
-          if (!ex.getFoundTypes().isEmpty()) {
-            newFields.addAll(ex.getFoundTypes());
+          log.warn("Force mode: could not find data types for fields {} - these fields will not be indexed or searchable. Product will still be ingested.", lastEx.getMissingFields());
+          if (!lastEx.getFoundTypes().isEmpty()) {
+            newFields.addAll(lastEx.getFoundTypes());
           }
         }
       }
