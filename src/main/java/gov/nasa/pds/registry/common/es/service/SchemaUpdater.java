@@ -152,12 +152,8 @@ public class SchemaUpdater {
               log.error("Could not find the data type for the field {}", f);
             }
             log.error("One or more field types could not be resolved from the registry data dictionary."
-                + " Please re-run Harvest — this may be a transient registry indexing delay."
-                + " If the problem persists, the LDD for this namespace may have been loaded before a parser fix was applied,"
-                + " leaving some fields missing from the data dictionary index."
-                + " To recover: run 'registry-manager delete-dd -ns <namespace> -registry <url> -auth <file>'"
-                + " then re-run Harvest to force a fresh LDD reload."
-                + " If the issue still persists, contact pds-operator@jpl.nasa.gov.");
+                + " Please re-run Harvest, as this may be a transient registry indexing delay."
+                + " If the problem persists, contact pds-operator@jpl.nasa.gov.");
             throw lastEx;
           }
           log.warn("Force mode: could not find data types for fields {} - these fields will not be indexed or searchable. Product will still be ingested.", lastEx.getMissingFields());
