@@ -3,10 +3,10 @@ package gov.nasa.pds.registry.common.es.service;
 import java.io.File;
 import java.time.Instant;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,7 +35,7 @@ public class JsonLddLoader {
   private DataLoader loader;
 
   private DataDictionaryDao dao;
-  private final Set<String> loadedThisRun = new HashSet<>();
+  private final Set<String> loadedThisRun = ConcurrentHashMap.newKeySet();
 
   /**
    * Constructor
@@ -97,10 +97,14 @@ public class JsonLddLoader {
     // TODO add the test of overwrite yes/no, remove it from where it is not >?
 
 
+    // Key combines namespace and filename so two namespaces using the same filename
+    // don't incorrectly share a cache entry.
+    String cacheKey = namespace + ":" + lddFileName;
+
     // Short-circuit: if we already loaded this LDD file in this JVM run, skip the
     // AOSS query entirely. This prevents re-downloads when the LDD_Info sentinel is
     // not yet visible via search immediately after a bulk load (AOSS propagation lag).
-    if (loadedThisRun.contains(lddFileName)) {
+    if (loadedThisRun.contains(cacheKey)) {
       log.debug("LDD {} already loaded in this run, skipping.", lddFileName);
       return;
     }
@@ -109,13 +113,17 @@ public class JsonLddLoader {
     LddVersions info = dao.getLddInfo(namespace);
     if (info.files.contains(lddFileName)) {
       log.debug("LDD {} already loaded in registry.", lddFileName);
-      loadedThisRun.add(lddFileName);
+      loadedThisRun.add(cacheKey);
       return;
     }
 
     // Create and load temporary data file into Elasticsearch
-    loadOnly(lddFile, lddFileName, namespace, info.lastDate);
-    loadedThisRun.add(lddFileName);
+    boolean visible = loadOnly(lddFile, lddFileName, namespace, info.lastDate);
+    // Only cache as loaded when the LDD became fully visible; if loadOnly timed out
+    // with a warn-and-continue, the next call will still check AOSS.
+    if (visible) {
+      loadedThisRun.add(cacheKey);
+    }
   }
 
 
@@ -130,7 +138,7 @@ public class JsonLddLoader {
    * @param lastDate last date of an LDD for given namespace already loaded into registry
    * @throws Exception an exception
    */
-  public void loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
+  public boolean loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
       throws Exception {
     // Create and load temporary data file into Elasticsearch
     File tempEsDataFile = File.createTempFile("es-", ".json");
@@ -158,9 +166,11 @@ public class JsonLddLoader {
 
       if (info.isEmpty()) {
         log.warn("The new LDD {} is not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.", namespace, maxAttempts);
-      } else {
-        log.debug("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
-     
+        return false;
+      }
+
+      log.debug("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
+
       // On AWS OpenSearch Serverless (AOSS), mget and search use different visibility paths.
       // Wait until a specific field document is also visible via mget with refresh=true,
       // so that getDataTypes() calls immediately following this load will succeed.
@@ -177,7 +187,7 @@ public class JsonLddLoader {
         }
       }
       log.debug("Visibility of namespace " + namespace + " has been fully validated.");
-    }
+      return true;
     } finally {
       // Delete temporary file
       tempEsDataFile.delete();

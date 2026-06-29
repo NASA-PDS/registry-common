@@ -139,7 +139,12 @@ public class SchemaUpdater {
             if (retrySeconds < maxRetrySeconds) {
               log.debug("Fields {} not yet visible in -dd index, retrying in 1s ({}/{}s)...",
                   ex.getMissingFields(), retrySeconds + 1, maxRetrySeconds);
-              try { Thread.sleep(1000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+              try {
+                Thread.sleep(1000);
+              } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new LddException("Interrupted while waiting for data dictionary propagation in -dd index", ie);
+              }
               retrySeconds++;
             } else {
               break;
