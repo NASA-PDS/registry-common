@@ -146,6 +146,10 @@ public class JsonLddLoader {
 
     try {
       String firstFieldId = createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
+      if (firstFieldId == null) {
+        // createEsDataFile logged a warning; nothing to load.
+        return false;
+      }
       loader.loadFile(tempEsDataFile);
 
       // Wait until the LDD_Info sentinel is visible (search with requestCache=false).
@@ -256,11 +260,23 @@ public class JsonLddLoader {
       ClassAttrAssociationParser caaParser = new ClassAttrAssociationParser(lddFile, ccb);
       caaParser.parse();
 
+      String firstFieldId = ccb.getFirstFieldId();
+      if (firstFieldId == null) {
+        // Zero fields were written for this namespace — do not write the LDD_Info sentinel.
+        // A sentinel with no field documents would cause all future runs to skip this LDD
+        // (believing it already loaded), leaving the namespace permanently empty in -dd.
+        log.warn("LDD {} produced no field documents for namespace '{}'. "
+            + "The LDD will be re-attempted on the next run. "
+            + "If this persists, the LDD JSON may be malformed or use an unrecognised format.",
+            lddFileName, namespace);
+        return null;
+      }
+
       // Write data dictionary version and date
       writer.writeLddInfo(namespace, lddFileName, attrParser.getImVersion(),
           attrParser.getLddVersion(), attrParser.getLddDate());
 
-      return ccb.getFirstFieldId();
+      return firstFieldId;
     } finally {
       writer.close();
     }
