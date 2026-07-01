@@ -2,11 +2,7 @@
 
 ## [v2.4.4](https://github.com/NASA-PDS/registry-common/tree/v2.4.4) (2026-06-23)
 
-[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/release/2.4.5...v2.4.4)
-
-## [release/2.4.5](https://github.com/NASA-PDS/registry-common/tree/release/2.4.5) (2026-06-18)
-
-[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.4.3...release/2.4.5)
+[Full Changelog](https://github.com/NASA-PDS/registry-common/compare/v2.4.3...v2.4.4)
 
 **Improvements:**
 
