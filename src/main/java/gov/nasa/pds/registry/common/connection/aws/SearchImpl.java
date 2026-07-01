@@ -121,12 +121,10 @@ class SearchImpl implements Search {
   }
   @Override
   public Search all(String sortField, int size, String searchAfter) {
-    /** opensearch 3.x
-    FieldValue fv = new FieldValue.Builder().stringValue(searchAfter).build();
-    this.craftsman.searchAfter(Arrays.asList(fv));
-    */
-    /** opensearch 2.x */
-    this.craftsman.searchAfter(Arrays.asList(new FieldValue.Builder().stringValue(searchAfter).build()));
+    if (searchAfter != null) {
+      this.craftsman.searchAfter(Arrays.asList(new FieldValue.Builder().stringValue(searchAfter).build()));
+    }
+    this.craftsman.size(size);
     this.craftsman.sort(new SortOptions.Builder()
         .field(new FieldSort.Builder().field(sortField).order(SortOrder.Asc).build())
         .build());
