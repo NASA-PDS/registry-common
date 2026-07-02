@@ -26,9 +26,9 @@ import gov.nasa.pds.registry.common.util.Tuple;
 
 import gov.nasa.pds.registry.common.es.dao.dd.DataDictionaryDao;
 import gov.nasa.pds.registry.common.es.dao.dd.DataTypeNotFoundException;
+import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
 import gov.nasa.pds.registry.common.ConnectionFactory;
 import gov.nasa.pds.registry.common.es.dao.schema.SchemaDao;
-import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
 import gov.nasa.pds.registry.common.meta.OpsFields;
 
 
@@ -120,38 +120,13 @@ public class SchemaUpdater {
         }
       }
       if (!ddFields.isEmpty()) {
-        // Retry loop: AOSS may not yet have made all documents from a just-completed
-        // bulk LDD load visible via mget, even after the per-field visibility wait in
-        // JsonLddLoader. Retry for up to 30 seconds before giving up.
-        final int maxRetrySeconds = 30;
-        int retrySeconds = 0;
-        DataTypeNotFoundException lastEx = null;
-        while (retrySeconds <= maxRetrySeconds) {
-          try {
-            List<Tuple> ddTypes = ddDao.getDataTypes(ddFields);
-            if (ddTypes != null) {
-              newFields.addAll(ddTypes);
-            }
-            lastEx = null;
-            break;
-          } catch (DataTypeNotFoundException ex) {
-            lastEx = ex;
-            if (retrySeconds < maxRetrySeconds) {
-              log.debug("Fields {} not yet visible in -dd index, retrying in 1s ({}/{}s)...",
-                  ex.getMissingFields(), retrySeconds + 1, maxRetrySeconds);
-              try {
-                Thread.sleep(1000);
-              } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                throw new LddException("Interrupted while waiting for data dictionary propagation in -dd index", ie);
-              }
-              retrySeconds++;
-            } else {
-              break;
-            }
+        try {
+          List<Tuple> ddTypes = SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+              () -> ddDao.getDataTypes(ddFields), log, "data dictionary fields");
+          if (ddTypes != null) {
+            newFields.addAll(ddTypes);
           }
-        }
-        if (lastEx != null) {
+        } catch (DataTypeNotFoundException lastEx) {
           if (!forceLoad) {
             for (String f : lastEx.getMissingFields()) {
               log.error("Could not find the data type for the field {}", f);

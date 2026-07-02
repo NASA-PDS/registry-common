@@ -152,45 +152,29 @@ public class JsonLddLoader {
       }
       loader.loadFile(tempEsDataFile);
 
-      // Wait until the LDD_Info sentinel is visible (search with requestCache=false).
-      // This confirms the bulk load completed on the server side.
-      LddVersions info = dao.getLddInfoNoCache(namespace);
-      int nAttempts = 0;
-      int maxAttempts = 30;
-      while (info.isEmpty() && nAttempts < maxAttempts) {
-        Thread.sleep(1000);
-        nAttempts++;
-        if (nAttempts % 60 == 0) {
-          log.info("Waiting for the new LDD {} to be indexed... ({} seconds elapsed)", namespace, nAttempts);
-        } else {
-          log.debug("Waiting for the new LDD {} to be indexed... ({} seconds elapsed)", namespace, nAttempts);
-        }
-        info = dao.getLddInfoNoCache(namespace);
-      }
-
+      // Wait until the LDD_Info sentinel is visible via search (confirms bulk load completed).
+      LddVersions info = SearchIndexWait.untilReady(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+          () -> dao.getLddInfoNoCache(namespace), v -> !v.isEmpty(),
+          log, "LDD sentinel for namespace " + namespace);
       if (info.isEmpty()) {
-        log.warn("The new LDD {} is not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.", namespace, maxAttempts);
+        log.warn("LDD {} not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.",
+            namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
         return false;
       }
+      log.debug("LDD {} indexed with date {}. Waiting for mget visibility.", namespace, info.lastDate);
 
-      log.debug("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
-
-      // On AWS OpenSearch Serverless (AOSS), mget and search use different visibility paths.
-      // Wait until a specific field document is also visible via mget with refresh=true,
-      // so that getDataTypes() calls immediately following this load will succeed.
-      if (firstFieldId != null) {
-        boolean fieldVisible = false;
-        while (!fieldVisible) {
-          try {
-            dao.getDataTypesWithRefresh(Collections.singletonList(firstFieldId));
-            fieldVisible = true;
-          } catch (DataTypeNotFoundException e) {
-            Thread.sleep(1000);
-            log.debug("Waiting for field {} of namespace {} to be visible via mget...", firstFieldId, namespace);
-          }
-        }
+      // On AOSS, mget and search use different visibility paths. Wait until the first field
+      // document is also reachable via mget so that getDataTypes() calls succeed immediately.
+      try {
+        SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+            () -> dao.getDataTypesWithRefresh(Collections.singletonList(firstFieldId)),
+            log, "field " + firstFieldId + " of namespace " + namespace + " via mget");
+      } catch (DataTypeNotFoundException e) {
+        log.warn("Field {} of namespace {} not visible via mget after {} seconds. Schema update may retry.",
+            firstFieldId, namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
+        return false;
       }
-      log.debug("Visibility of namespace " + namespace + " has been fully validated.");
+      log.debug("Visibility of namespace {} fully validated.", namespace);
       return true;
     } finally {
       // Delete temporary file
