@@ -4,7 +4,9 @@ import java.io.File;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,6 +35,7 @@ public class JsonLddLoader {
   private DataLoader loader;
 
   private DataDictionaryDao dao;
+  private final Set<String> loadedThisRun = ConcurrentHashMap.newKeySet();
 
   /**
    * Constructor
@@ -94,15 +97,33 @@ public class JsonLddLoader {
     // TODO add the test of overwrite yes/no, remove it from where it is not >?
 
 
+    // Key combines namespace and filename so two namespaces using the same filename
+    // don't incorrectly share a cache entry.
+    String cacheKey = namespace + ":" + lddFileName;
+
+    // Short-circuit: if we already loaded this LDD file in this JVM run, skip the
+    // AOSS query entirely. This prevents re-downloads when the LDD_Info sentinel is
+    // not yet visible via search immediately after a bulk load (AOSS propagation lag).
+    if (loadedThisRun.contains(cacheKey)) {
+      log.debug("LDD {} already loaded in this run, skipping.", lddFileName);
+      return;
+    }
+
     // Get information about LDDs already loaded into the registry (for this namespace)
     LddVersions info = dao.getLddInfo(namespace);
     if (info.files.contains(lddFileName)) {
-      log.info("This LDD already loaded.");
+      log.debug("LDD {} already loaded in registry.", lddFileName);
+      loadedThisRun.add(cacheKey);
       return;
     }
 
     // Create and load temporary data file into Elasticsearch
-    loadOnly(lddFile, lddFileName, namespace, info.lastDate);
+    boolean visible = loadOnly(lddFile, lddFileName, namespace, info.lastDate);
+    // Only cache as loaded when the LDD became fully visible; if loadOnly timed out
+    // with a warn-and-continue, the next call will still check AOSS.
+    if (visible) {
+      loadedThisRun.add(cacheKey);
+    }
   }
 
 
@@ -117,49 +138,44 @@ public class JsonLddLoader {
    * @param lastDate last date of an LDD for given namespace already loaded into registry
    * @throws Exception an exception
    */
-  public void loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
+  public boolean loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
       throws Exception {
     // Create and load temporary data file into Elasticsearch
     File tempEsDataFile = File.createTempFile("es-", ".json");
-    log.info("Creating temporary ES data file " + tempEsDataFile.getAbsolutePath());
+    log.debug("Creating temporary ES data file " + tempEsDataFile.getAbsolutePath());
 
     try {
       String firstFieldId = createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
+      if (firstFieldId == null) {
+        // createEsDataFile logged a warning; nothing to load.
+        return false;
+      }
       loader.loadFile(tempEsDataFile);
 
-      // Wait until the LDD_Info sentinel is visible (search with requestCache=false).
-      // This confirms the bulk load completed on the server side.
-      LddVersions info = dao.getLddInfoNoCache(namespace);
-      int nAttempts = 0;
-      int maxAttempts = 30;
-      while (info.isEmpty() && nAttempts < maxAttempts) {
-        Thread.sleep(1000);
-        log.info("Waiting for the new LDD {} to be indexed...", namespace);
-        info = dao.getLddInfoNoCache(namespace);
-      }
-
+      // Wait until the LDD_Info sentinel is visible via search (confirms bulk load completed).
+      LddVersions info = SearchIndexWait.untilReady(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+          () -> dao.getLddInfoNoCache(namespace), v -> !v.isEmpty(),
+          log, "LDD sentinel for namespace " + namespace);
       if (info.isEmpty()) {
-        log.warn("The new LDD {} is not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.", namespace, maxAttempts);
-      } else {
-        log.info("The new LDD {} is indexed with date {}. It may take some time for it to be visible via mget.", namespace, info.lastDate);
-     
-      // On AWS OpenSearch Serverless (AOSS), mget and search use different visibility paths.
-      // Wait until a specific field document is also visible via mget with refresh=true,
-      // so that getDataTypes() calls immediately following this load will succeed.
-      if (firstFieldId != null) {
-        boolean fieldVisible = false;
-        while (!fieldVisible) {
-          try {
-            dao.getDataTypesWithRefresh(Collections.singletonList(firstFieldId));
-            fieldVisible = true;
-          } catch (DataTypeNotFoundException e) {
-            Thread.sleep(1000);
-            log.info("Waiting for field {} of namespace {} to be visible via mget...", firstFieldId, namespace);
-          }
-        }
+        log.warn("LDD {} not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.",
+            namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
+        return false;
       }
-      log.info("Visibility of namespace " + namespace + "has been fully validated.");
-    }
+      log.debug("LDD {} indexed with date {}. Waiting for mget visibility.", namespace, info.lastDate);
+
+      // On AOSS, mget and search use different visibility paths. Wait until the first field
+      // document is also reachable via mget so that getDataTypes() calls succeed immediately.
+      try {
+        SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+            () -> dao.getDataTypesWithRefresh(Collections.singletonList(firstFieldId)),
+            log, "field " + firstFieldId + " of namespace " + namespace + " via mget");
+      } catch (DataTypeNotFoundException e) {
+        log.warn("Field {} of namespace {} not visible via mget after {} seconds. Schema update may retry.",
+            firstFieldId, namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
+        return false;
+      }
+      log.debug("Visibility of namespace {} fully validated.", namespace);
+      return true;
     } finally {
       // Delete temporary file
       tempEsDataFile.delete();
@@ -228,11 +244,23 @@ public class JsonLddLoader {
       ClassAttrAssociationParser caaParser = new ClassAttrAssociationParser(lddFile, ccb);
       caaParser.parse();
 
+      String firstFieldId = ccb.getFirstFieldId();
+      if (firstFieldId == null) {
+        // Zero fields were written for this namespace — do not write the LDD_Info sentinel.
+        // A sentinel with no field documents would cause all future runs to skip this LDD
+        // (believing it already loaded), leaving the namespace permanently empty in -dd.
+        log.warn("LDD {} produced no field documents for namespace '{}'. "
+            + "The LDD will be re-attempted on the next run. "
+            + "If this persists, the LDD JSON may be malformed or use an unrecognised format.",
+            lddFileName, namespace);
+        return null;
+      }
+
       // Write data dictionary version and date
       writer.writeLddInfo(namespace, lddFileName, attrParser.getImVersion(),
           attrParser.getLddVersion(), attrParser.getLddDate());
 
-      return ccb.getFirstFieldId();
+      return firstFieldId;
     } finally {
       writer.close();
     }

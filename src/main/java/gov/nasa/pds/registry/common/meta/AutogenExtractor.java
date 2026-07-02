@@ -118,6 +118,7 @@ public class AutogenExtractor
         
         // Field value
         String fieldValue = StringUtils.normalizeSpace(node.getTextContent());
+        if(fieldValue.isEmpty()) return;
         fields.addValue(fieldName, fieldValue);
     }
     
