@@ -104,6 +104,12 @@ public class JsonLddLoader {
     // Short-circuit: if we already loaded this LDD file in this JVM run, skip the
     // AOSS query entirely. This prevents re-downloads when the LDD_Info sentinel is
     // not yet visible via search immediately after a bulk load (AOSS propagation lag).
+    //
+    // Note: contains() + add() below is not atomic, so two threads racing on the same
+    // key can both proceed to loadOnly(). That is safe because loadOnly() is idempotent
+    // (AOSS bulk loads with the same document IDs overwrite with identical data), so the
+    // only cost is redundant network work. Coarse synchronization would block all threads
+    // on a per-LDD AOSS wait (~30s), which is worse.
     if (loadedThisRun.contains(cacheKey)) {
       log.debug("LDD {} already loaded in this run, skipping.", lddFileName);
       return;

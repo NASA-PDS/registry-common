@@ -40,7 +40,7 @@ public class TestAutogenExtractor {
 
     /**
      * Regression test for https://github.com/NASA-PDS/registry-common/issues/293.
-     * Uses the real MRO/MESSENGER label that triggered the bug in production.
+     * Uses the real New Horizons MVIC (nh_mvic) label that triggered the bug in production.
      * <geom:Illumination_Geometry/> and <sb:Ancillary_Data_Objects/> are present
      * as empty self-closing elements and must not be emitted as indexable fields.
      */
