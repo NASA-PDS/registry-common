@@ -138,7 +138,7 @@ public class JsonLddLoader {
    * @param lastDate last date of an LDD for given namespace already loaded into registry
    * @throws Exception an exception
    */
-  public boolean loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
+  boolean loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
       throws Exception {
     // Create and load temporary data file into Elasticsearch
     File tempEsDataFile = File.createTempFile("es-", ".json");
@@ -167,7 +167,7 @@ public class JsonLddLoader {
       // document is also reachable via mget so that getDataTypes() calls succeed immediately.
       try {
         SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
-            () -> dao.getDataTypesWithRefresh(Collections.singletonList(firstFieldId)),
+            () -> dao.getDataTypes(Collections.singletonList(firstFieldId), true),
             log, "field " + firstFieldId + " of namespace " + namespace + " via mget");
       } catch (DataTypeNotFoundException e) {
         log.warn("Field {} of namespace {} not visible via mget after {} seconds. Schema update may retry.",
@@ -262,7 +262,7 @@ public class JsonLddLoader {
 
       return firstFieldId;
     } finally {
-      writer.close();
+      if (writer != null) writer.close();
     }
   }
 

@@ -35,6 +35,7 @@ final class SearchIndexWait {
    */
   static <T> T untilReady(int maxSeconds, ThrowingSupplier<T> op, Predicate<T> ready,
       Logger log, String desc) throws Exception {
+    if (maxSeconds < 0) throw new IllegalArgumentException("maxSeconds must be >= 0, got: " + maxSeconds);
     T result = op.get();
     for (int elapsed = 0; !ready.test(result) && elapsed < maxSeconds; elapsed++) {
       log.debug("{} not yet ready, retrying ({}/{} s)...", desc, elapsed + 1, maxSeconds);
@@ -56,6 +57,7 @@ final class SearchIndexWait {
    */
   static <T> T untilVisible(int maxSeconds, ThrowingSupplier<T> op,
       Logger log, String desc) throws Exception {
+    if (maxSeconds < 0) throw new IllegalArgumentException("maxSeconds must be >= 0, got: " + maxSeconds);
     DataTypeNotFoundException last = null;
     for (int elapsed = 0; elapsed <= maxSeconds; elapsed++) {
       try {

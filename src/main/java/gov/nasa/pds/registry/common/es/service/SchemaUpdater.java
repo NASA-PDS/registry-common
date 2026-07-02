@@ -48,6 +48,7 @@ public class SchemaUpdater {
 
   private DataDictionaryDao ddDao;
   private SchemaDao schemaDao;
+  private ConnectionFactory conFact;
 
   final private String index;
   private boolean forceLoad = false;
@@ -74,6 +75,7 @@ public class SchemaUpdater {
 
     fileDownloader = new FileDownloader(true);
 
+    this.conFact = conFact;
     lddLoader = new JsonLddLoader(ddDao, conFact);
     lddLoader.loadPds2EsDataTypeMap(LddUtils.getPds2EsDataTypeCfgFile("HARVEST_HOME"));
     this.index = conFact.getIndexName();
@@ -120,8 +122,9 @@ public class SchemaUpdater {
         }
       }
       if (!ddFields.isEmpty()) {
+        int waitSeconds = conFact.isServerless() ? SearchIndexWait.DEFAULT_WAIT_SECONDS : 0;
         try {
-          List<Tuple> ddTypes = SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+          List<Tuple> ddTypes = SearchIndexWait.untilVisible(waitSeconds,
               () -> ddDao.getDataTypes(ddFields), log, "data dictionary fields");
           if (ddTypes != null) {
             newFields.addAll(ddTypes);
