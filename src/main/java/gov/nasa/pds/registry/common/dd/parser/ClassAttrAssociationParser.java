@@ -4,6 +4,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import com.google.gson.stream.JsonToken;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 /**
@@ -36,6 +38,8 @@ public class ClassAttrAssociationParser extends BaseLddParser
     ////////////////////////////////////////////////////////////////////////
     
     
+    private static final Logger log = LogManager.getLogger(ClassAttrAssociationParser.class);
+
     private Callback cb;
     private int itemCount;
 
@@ -170,9 +174,11 @@ public class ClassAttrAssociationParser extends BaseLddParser
 
     private void parseAssoc(List<String> pendingAttrIds) throws Exception
     {
-        // LDD JSON format varies by IM version:
-        //   IM <= 1.24: "identifier" (string) only
-        //   IM >= 1.25: both "attributeId" (array) and "identifier" (string) are present
+        // LDD JSON format varies by LDD tooling version (not IM version — the same IM version
+        // can produce either format depending on when the LDD was generated):
+        //   Older tooling: "identifier" (string) only; may also emit a key literally named
+        //                  "null" carrying the same ID as an array (safely ignored).
+        //   Newer tooling: both "attributeId" (array) and "identifier" (string) are present.
         // Prefer "attributeId" when present; fall back to "identifier".
         // All fields must be buffered before we can act because field order is not guaranteed.
         String identifierFallback = null;
@@ -246,6 +252,16 @@ public class ClassAttrAssociationParser extends BaseLddParser
         else if(identifierFallback != null)
         {
             pendingAttrIds.add(identifierFallback);
+        }
+        else
+        {
+            // isAttribute=true but no attribute ID was found via either key.
+            // This means the LDD JSON uses an unrecognised format — fields will be silently
+            // lost. Log a warning so format changes don't go undetected.
+            log.warn("Association in class {}:{} has isAttribute=true but no attribute ID "
+                + "could be resolved (neither 'attributeId' nor 'identifier' found). "
+                + "This field will not be indexed. The LDD JSON may use an unrecognised format.",
+                classNs, className);
         }
     }
     
