@@ -1,5 +1,6 @@
 package gov.nasa.pds.registry.common.es.service;
 
+import java.io.IOException;
 import java.util.function.Predicate;
 
 import org.apache.logging.log4j.Logger;
@@ -22,7 +23,7 @@ final class SearchIndexWait {
 
   @FunctionalInterface
   interface ThrowingSupplier<T> {
-    T get() throws Exception;
+    T get() throws IOException, DataTypeNotFoundException;
   }
 
   /**
@@ -30,11 +31,12 @@ final class SearchIndexWait {
    * Returns the last result regardless of whether the predicate was satisfied; the caller must
    * check the result (e.g. {@code isEmpty()}) and handle the timeout case.
    *
-   * @throws LddException if the thread is interrupted while sleeping
-   * @throws Exception    if {@code op} itself throws (other than InterruptedException)
+   * @throws LddException              if the thread is interrupted while sleeping
+   * @throws IOException               if {@code op} itself throws
+   * @throws DataTypeNotFoundException if {@code op} throws it
    */
   static <T> T untilReady(int maxSeconds, ThrowingSupplier<T> op, Predicate<T> ready,
-      Logger log, String desc) throws Exception {
+      Logger log, String desc) throws IOException, DataTypeNotFoundException, LddException {
     if (maxSeconds < 0) throw new IllegalArgumentException("maxSeconds must be >= 0, got: " + maxSeconds);
     T result = op.get();
     for (int elapsed = 0; !ready.test(result) && elapsed < maxSeconds; elapsed++) {
@@ -52,11 +54,10 @@ final class SearchIndexWait {
    *
    * @throws DataTypeNotFoundException if {@code op} still throws after {@code maxSeconds} seconds
    * @throws LddException              if the thread is interrupted while sleeping
-   * @throws Exception                 if {@code op} throws something other than
-   *                                   {@code DataTypeNotFoundException}
+   * @throws IOException               if {@code op} throws an IOException
    */
   static <T> T untilVisible(int maxSeconds, ThrowingSupplier<T> op,
-      Logger log, String desc) throws Exception {
+      Logger log, String desc) throws IOException, DataTypeNotFoundException, LddException {
     if (maxSeconds < 0) throw new IllegalArgumentException("maxSeconds must be >= 0, got: " + maxSeconds);
     DataTypeNotFoundException last = null;
     for (int elapsed = 0; elapsed <= maxSeconds; elapsed++) {
