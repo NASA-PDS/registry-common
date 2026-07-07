@@ -107,37 +107,33 @@ public class DataDictionaryDao {
 
   /**
    * Query Elasticsearch data dictionary to get data types for a list of field ids.
-   * 
+   *
    * @param ids A list of field IDs, e.g., "pds:Array_3D/pds:axes".
-   * @param stringForMissing If true, throw DataTypeNotFoundException on first field missing from
-   *        Elasticsearch data dictionary. If false, process all missing fields in a batch to create
-   *        a list of missing namespaces. Don't throw DataTypeNotFoundException.
    * @return Data types information object
    * @throws DataTypeNotFoundException
    * @throws IOException
-   * @throws ResponseException
-   * @throws Exception DataTypeNotFoundException, IOException, etc.
    */
   public List<Tuple> getDataTypes(Collection<String> ids)
       throws IOException, DataTypeNotFoundException {
-    if (ids == null || ids.isEmpty())
-      return null;
-    // Create request
-    Request.Get req = client.createMGetRequest().setIds(ids).includeField("es_data_type")
-        .setIndex(this.indexName + "-dd");
-    return this.client.performRequest(req).dataTypes();
+    return getDataTypes(ids, false);
   }
 
   /**
-   * Same as getDataTypes but forces a shard refresh before the mget. Use only in targeted wait
-   * loops after bulk loading an LDD — do not use in normal query paths.
+   * Query Elasticsearch data dictionary to get data types for a list of field ids.
+   *
+   * @param ids A list of field IDs, e.g., "pds:Array_3D/pds:axes".
+   * @param forceRefresh If true, force a shard refresh before the mget. Use only in targeted wait
+   *        loops after bulk loading an LDD — do not use in normal query paths.
+   * @return Data types information object
+   * @throws DataTypeNotFoundException
+   * @throws IOException
    */
-  public List<Tuple> getDataTypesWithRefresh(Collection<String> ids)
+  public List<Tuple> getDataTypes(Collection<String> ids, boolean forceRefresh)
       throws IOException, DataTypeNotFoundException {
     if (ids == null || ids.isEmpty())
       return null;
     Request.MGet mgetReq = client.createMGetRequest();
-    mgetReq.setRefresh(true);
+    if (forceRefresh) mgetReq.setRefresh(true);
     Request.Get req = mgetReq.setIds(ids).includeField("es_data_type")
         .setIndex(this.indexName + "-dd");
     return this.client.performRequest(req).dataTypes();
