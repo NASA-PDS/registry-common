@@ -104,7 +104,7 @@ public class SchemaUpdater {
           throw ex;
         } catch (Exception ex) {
           log.warn("Could not update LDD for namespace '{}' at URI {}: {}. Harvesting will continue with available field definitions.",
-              prefix, uri, ex.getMessage());
+              prefix, uri, ex.getMessage(), ex);
         }
       }
     }
