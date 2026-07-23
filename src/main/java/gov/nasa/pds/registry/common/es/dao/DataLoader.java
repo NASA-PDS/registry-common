@@ -38,6 +38,9 @@ public class DataLoader {
   private int printProgressSize = 500;
   private int batchSize = 100;
   private int totalRecords;
+  // When true, 409 Conflict on "create" is treated as success (document already exists).
+  // Safe for idempotent LDD loads; leave false for product ingestion where duplicates are errors.
+  private boolean ignoreConflicts = false;
 
   private Logger log;
   private ConnectionFactory conFactory;
@@ -56,8 +59,18 @@ public class DataLoader {
 
 
   /**
+   * When set to true, 409 Conflict responses on "create" operations are treated as success.
+   * Use for idempotent loads (e.g. LDD ingestion) where a pre-existing document is acceptable.
+   * Default is false; keep false for product ingestion.
+   */
+  public void setIgnoreConflicts(boolean ignoreConflicts) {
+    this.ignoreConflicts = ignoreConflicts;
+  }
+
+
+  /**
    * Set data batch size
-   * 
+   *
    * @param size batch size
    */
   public void setBatchSize(int size) {
@@ -184,8 +197,13 @@ public class DataLoader {
       totalRecords += uploaded;
 
       if (uploaded != numRecords) {
+        // When ignoreConflicts=true, 409s are not counted as errors so uploaded==numRecords
+        // and this branch is not reached.  When ignoreConflicts=false (default, product
+        // ingestion), 409s ARE counted as failures, so a shortfall here means real write
+        // failures that should be investigated.
         throw new Exception(
-            "Failed to upload all documents (" + uploaded + "/" + numRecords + ") to -dd");
+            "Failed to upload " + (numRecords - uploaded) + "/" + numRecords + " documents to index '"
+                + conFactory.getIndexName() + "'. Check ERROR lines above for per-document reasons.");
       }
       return line1;
     } catch (UnknownHostException ex) {
@@ -306,9 +324,14 @@ public class DataLoader {
     if (resp.errors()) {
       for (Response.Bulk.Item item : resp.items()) {
         if (item.error()) {
-          if (item.operation().equals("create") && item.status() == 409) { // already exists
+          if (item.operation().equals("create") && item.status() == 409) {
             todo.remove(asKey(item));
-            numErrors++;
+            if (ignoreConflicts) {
+              log.debug("Document '{}' already exists in '{}', skipping (create 409).",
+                  item.id(), conFactory.getIndexName());
+            } else {
+              numErrors++;
+            }
           } else {
             String message = item.reason();
             String sanitizedLidvid = item.id().replace('\r', ' ').replace('\n', ' '); // protect vs
