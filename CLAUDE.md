@@ -114,6 +114,16 @@ The library provides a unified `Request` and `Response` interface that abstracts
 - Builds publish to Maven Central via Sonatype Central Portal
 - Requires secrets: `CENTRAL_REPOSITORY_USERNAME`, `CENTRAL_REPOSITORY_TOKEN`, `CODE_SIGNING_KEY`
 
+## Coding Style
+
+All Java source files must follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html). Key rules:
+
+- **Indentation**: 2 spaces (no tabs)
+- **Column limit**: 100 characters
+- **Braces**: always used for blocks, opening brace on same line
+- **Imports**: no wildcard imports; ordered as static imports first, then standard library, then third-party, then project imports, each group separated by a blank line
+- **Naming**: `UpperCamelCase` for classes, `lowerCamelCase` for methods and variables, `UPPER_SNAKE_CASE` for constants
+
 ## Critical Invariants
 
 **Schema field must exist before metadata is loaded:**
