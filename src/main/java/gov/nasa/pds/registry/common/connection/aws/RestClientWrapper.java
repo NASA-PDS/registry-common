@@ -90,7 +90,7 @@ public class RestClientWrapper implements RestClient {
             try {
               Thread.sleep(Math.min(retries, 30) * 1000L); // back off, capped at 30s
             } catch (InterruptedException ie) {
-              // Tried to wait but nothing to be done if cannot
+              Thread.currentThread().interrupt();
             }
           } else {
             log.error("Tried " + retry_limit + " times to recover from I/O errors with OpenSearch but cannot.", ioe);
