@@ -213,12 +213,15 @@ class JsonHelper {
     return strWriter.toString();
   }
 
+  /** Largest page the cluster allows (default index.max_result_window). */
+  static final int MAX_LIST_FIELDS_SIZE = 10000;
+
   static String buildListFieldsRequest(String dataType) {
     StringWriter strWriter = new StringWriter();
     try (JsonWriter jw = new JsonWriter(strWriter)) {
       jw.beginObject();
       // Size (number of records to return)
-      jw.name("size").value(1000);
+      jw.name("size").value(MAX_LIST_FIELDS_SIZE);
 
       // Start query
       jw.name("query");
