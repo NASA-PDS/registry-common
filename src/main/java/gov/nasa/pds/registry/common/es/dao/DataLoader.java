@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -18,9 +18,15 @@ import java.util.zip.ZipFile;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+
 import gov.nasa.pds.registry.common.ConnectionFactory;
 import gov.nasa.pds.registry.common.Request;
 import gov.nasa.pds.registry.common.Response;
+import gov.nasa.pds.registry.common.util.Backoff;
 import gov.nasa.pds.registry.common.util.CloseUtils;
 
 
@@ -41,6 +47,9 @@ public class DataLoader {
   // When true, 409 Conflict on "create" is treated as success (document already exists).
   // Safe for idempotent LDD loads; leave false for product ingestion where duplicates are errors.
   private boolean ignoreConflicts = false;
+  // Delay between retries of transient failures (OCU capacity, throttling, I/O errors):
+  // 10s, 20s, 40s, ... capped at 5 minutes, with up to 25% random jitter.
+  private Backoff retryBackoff = new Backoff(10_000L, 300_000L, 0.25);
 
   private Logger log;
   private ConnectionFactory conFactory;
@@ -65,6 +74,17 @@ public class DataLoader {
    */
   public void setIgnoreConflicts(boolean ignoreConflicts) {
     this.ignoreConflicts = ignoreConflicts;
+  }
+
+
+  /**
+   * Set the delay policy used between retries of transient failures such as
+   * "maximum OCU capacity reached", throttling and I/O errors.
+   */
+  public void setRetryBackoff(Backoff retryBackoff) {
+    if (retryBackoff == null)
+      throw new IllegalArgumentException("Retry backoff should not be null");
+    this.retryBackoff = retryBackoff;
   }
 
 
@@ -234,13 +254,28 @@ public class DataLoader {
    * @throws Exception an exception
    */
   public int loadBatch(List<String> data, Set<String> errorLidvids, int retries) throws Exception {
+    return loadBatch(data, errorLidvids, retries, 0);
+  }
+
+  /**
+   * Load data into Elasticsearch, retrying with exponential backoff.
+   *
+   * @param data NJSON data. (2 lines per record)
+   * @param errorLidvids output parameter. If not null, add failed LIDVIDs to this set.
+   * @param retries number of retries left if an exception is thrown.
+   * @param attempt number of retries already made; selects the next backoff delay, so delays keep
+   *        growing whatever the retry budget.
+   * @return Number of loaded documents
+   * @throws Exception an exception
+   */
+  private int loadBatch(List<String> data, Set<String> errorLidvids, int retries, int attempt)
+      throws Exception {
     if (data == null || data.isEmpty())
       return 0;
     if (data.size() % 2 != 0)
       throw new Exception("Data list size should be an even number.");
 
     try {
-      int failedCount = 0;
       int loadedCount = 0;
       int queued = 0;
       LinkedHashMap<String, String> queue = new LinkedHashMap<String, String>();
@@ -248,18 +283,12 @@ public class DataLoader {
         queued += data.get(index).length() + data.get(index + 1).length();
         queue.put(data.get(index), data.get(++index));
         if (queued > SIZE_THRESHOLD) {
-          failedCount += emptyQueue(queue, errorLidvids);
-          // Calculate number of successfully saved records
-          // NOTE: data list has two lines per record (primary key + data)
-          loadedCount += data.size() / 2 - failedCount;
+          loadedCount += flushQueue(queue, errorLidvids);
           queued = 0;
         }
       }
       if (queued > 0) {
-        failedCount += emptyQueue(queue, errorLidvids);
-        // Calculate number of successfully saved records
-        // NOTE: data list has two lines per record (primary key + data)
-        loadedCount += data.size() / 2 - failedCount;
+        loadedCount += flushQueue(queue, errorLidvids);
       }
       return loadedCount;
     } catch (UnknownHostException ex) {
@@ -267,12 +296,35 @@ public class DataLoader {
     } catch (IOException ex) {
       if (retries > 0) {
         String msg = ex.getMessage();
+        long delay = retryBackoff.delayMillis(attempt);
         log.warn("DataLoader.loadBatch() request failed due to \"" + msg + "\" (" + retries
-            + " retries remaining)");
-        return loadBatch(data, errorLidvids, retries - 1);
+            + " retries remaining), retrying in " + delay + " ms");
+        if (!pauseBeforeRetry(delay))
+          throw ex;
+        return loadBatch(data, errorLidvids, retries - 1, attempt + 1);
       }
       throw ex;
     }
+  }
+
+  /**
+   * Wait before retrying a failed request.
+   *
+   * @param delayMillis how long to wait
+   * @return false if the wait was interrupted
+   */
+  protected boolean pauseBeforeRetry(long delayMillis) {
+    return Backoff.pause(delayMillis);
+  }
+
+  /**
+   * Send one queue of records and return how many of them were loaded: the records in this queue
+   * less the failures in this queue, so a batch split into several queues is never over-counted.
+   */
+  private int flushQueue(LinkedHashMap<String, String> queue, Set<String> errorLidvids)
+      throws Exception {
+    int records = queue.size();
+    return records - emptyQueue(queue, errorLidvids);
   }
 
   private int emptyQueue(LinkedHashMap<String, String> todo, Set<String> errorLidvids)
@@ -290,16 +342,51 @@ public class DataLoader {
       failed += processErrors(response, errorLidvids, todo, retry);
       retry++;
 
-      if (!todo.isEmpty()) {
-        try {
-          Random random = new Random();
-          Thread.sleep((300 + random.nextInt(150)) * 1000L); // 5 to 7.5 minutes
-        } catch (InterruptedException e) {
-          // Tried to wait but nothing to be done if cannot
-        }
+      if (!todo.isEmpty() && retry < MAX_RETRY) {
+        long delay = retryBackoff.delayMillis(retry - 1);
+        log.warn(todo.size() + " document(s) rejected by a transient error, retrying in " + delay
+            + " ms (attempt " + retry + "/" + MAX_RETRY + ")");
+        if (!Backoff.pause(delay))
+          break;
       }
     }
+    // Anything still queued never succeeded: record it as failed rather than dropping it silently.
+    if (!todo.isEmpty())
+      failed += failRemaining(todo, errorLidvids, retry);
     return failed;
+  }
+
+  private int failRemaining(LinkedHashMap<String, String> todo, Set<String> errorLidvids,
+      int attempts) {
+    int numErrors = 0;
+    for (String key : todo.keySet()) {
+      String id = idFromKey(key);
+      String sanitizedLidvid = id.replace('\r', ' ').replace('\n', ' '); // protect vs log spoofing
+      log.error("LIDVID = " + sanitizedLidvid + ", Message = gave up after " + attempts
+          + " attempt(s), transient error persisted");
+      if (errorLidvids != null)
+        errorLidvids.add(id);
+      numErrors++;
+    }
+    todo.clear();
+    return numErrors;
+  }
+
+  // Inverse of asKey(): '{"create":{"_id":"<id>"}}' -> '<id>'
+  private String idFromKey(String key) {
+    try {
+      JsonObject action = JsonParser.parseString(key).getAsJsonObject().entrySet().iterator().next()
+          .getValue().getAsJsonObject();
+      JsonElement id = action.get("_id");
+      return id == null ? key : id.getAsString();
+    } catch (JsonParseException | IllegalStateException | NoSuchElementException e) {
+      return key;
+    }
+  }
+
+  private static boolean isTransient(String message) {
+    return message != null
+        && (message.contains("[throttled]") || message.contains("[maximum OCU capacity reached]"));
   }
 
   /**
@@ -343,9 +430,8 @@ public class DataLoader {
             String sanitizedMessage = message.replace('\r', ' ').replace('\n', ' '); // protect vs
                                                                                      // log spoofing
 
-            if ((message.contains("[throttled]")
-                || message.contains("[maximum OCU capacity reached]")) && retry < MAX_RETRY)
-              continue;
+            if (isTransient(message) && retry < MAX_RETRY)
+              continue; // stays in todo; retried with backoff by emptyQueue
 
             log.error("LIDVID = " + sanitizedLidvid + ", Message = " + sanitizedMessage);
             numErrors++;
