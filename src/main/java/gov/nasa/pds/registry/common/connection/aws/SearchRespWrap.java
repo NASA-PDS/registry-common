@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,7 +43,8 @@ class SearchRespWrap implements Response.Search {
   }
   @Override
   public Set<String> fields() throws UnsupportedOperationException, IOException {
-    Set<String> results = new HashSet<String>();
+    // Hit order is kept so a caller paging with search_after can take the last name as its cursor.
+    Set<String> results = new LinkedHashSet<String>();
     for (Hit<Object> hit : this.parent.hits().hits()) {
       for (String value : ((Map<String,String>)hit.source()).values()) {
         results.add(value);

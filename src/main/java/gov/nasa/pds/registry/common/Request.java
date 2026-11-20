@@ -52,6 +52,8 @@ public interface Request {
     public Search buildLatestLidVids(Collection<String> lids);
     public Search buildLidvidsFromTermQuery (String fieldname, String value);
     public Search buildListFields(String dataType);
+    /** One page of the field names of a data type, sorted by es_field_name; searchAfter is the last name of the previous page, or null. */
+    public Search buildListFields(String dataType, int size, String searchAfter);
     public Search buildListLdds (String namespace);
     public Search buildListLddsNoCache (String namespace);
     public Search buildTermQuery (String fieldname, String value);
