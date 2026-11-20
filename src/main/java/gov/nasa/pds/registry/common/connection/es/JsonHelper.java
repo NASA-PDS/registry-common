@@ -213,15 +213,41 @@ class JsonHelper {
     return strWriter.toString();
   }
 
-  /** Largest page the cluster allows (default index.max_result_window). */
-  static final int MAX_LIST_FIELDS_SIZE = 10000;
+  /** Page size of a single list-fields request (the size used before paging was added). */
+  static final int LIST_FIELDS_PAGE_SIZE = 1000;
 
   static String buildListFieldsRequest(String dataType) {
+    return buildListFieldsRequest(dataType, LIST_FIELDS_PAGE_SIZE, null);
+  }
+
+  /**
+   * Build one page of the list-fields request, sorted by es_field_name.
+   *
+   * @param dataType data type, such as "date"
+   * @param size page size
+   * @param searchAfter last es_field_name of the previous page, or null for the first page
+   * @return JSON
+   */
+  static String buildListFieldsRequest(String dataType, int size, String searchAfter) {
     StringWriter strWriter = new StringWriter();
     try (JsonWriter jw = new JsonWriter(strWriter)) {
       jw.beginObject();
       // Size (number of records to return)
-      jw.name("size").value(MAX_LIST_FIELDS_SIZE);
+      jw.name("size").value(size);
+
+      // Sort and search_after page through every field, whatever the index.max_result_window
+      jw.name("sort");
+      jw.beginArray();
+      jw.beginObject();
+      jw.name("es_field_name").value("asc");
+      jw.endObject();
+      jw.endArray();
+      if (searchAfter != null) {
+        jw.name("search_after");
+        jw.beginArray();
+        jw.value(searchAfter);
+        jw.endArray();
+      }
 
       // Start query
       jw.name("query");

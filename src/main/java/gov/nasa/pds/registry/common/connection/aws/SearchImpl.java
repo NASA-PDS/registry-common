@@ -23,12 +23,11 @@ import org.opensearch.client.opensearch._types.query_dsl.TermsQueryField;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.search.SourceConfig;
 import org.opensearch.client.opensearch.core.search.SourceFilter;
-import org.opensearch.client.opensearch.core.search.TrackHits;
 import gov.nasa.pds.registry.common.Request.Search;
 
 class SearchImpl implements Search {
-  /** Largest page the cluster allows (default index.max_result_window). */
-  static final int MAX_LIST_FIELDS_SIZE = 10000;
+  /** Page size of a single list-fields request (the size used before paging was added). */
+  static final int LIST_FIELDS_PAGE_SIZE = 1000;
   final SearchRequest.Builder craftsman = new SearchRequest.Builder();
 
   private void buildIds (Collection<String> lids, boolean alt) {
@@ -77,9 +76,18 @@ class SearchImpl implements Search {
   }
   @Override
   public Search buildListFields(String dataType) {
+    return this.buildListFields(dataType, LIST_FIELDS_PAGE_SIZE, null);
+  }
+  @Override
+  public Search buildListFields(String dataType, int size, String searchAfter) {
     this.craftsman.query(new Query.Builder().bool(new BoolQuery.Builder().must(this.matchQuery("es_data_type", dataType).build()).build()).build());
-    this.craftsman.size(MAX_LIST_FIELDS_SIZE);
-    this.craftsman.trackTotalHits(new TrackHits.Builder().enabled(true).build());
+    this.craftsman.size(size);
+    this.craftsman.sort(new SortOptions.Builder()
+        .field(new FieldSort.Builder().field("es_field_name").order(SortOrder.Asc).build())
+        .build());
+    if (searchAfter != null) {
+      this.craftsman.searchAfter(Arrays.asList(new FieldValue.Builder().stringValue(searchAfter).build()));
+    }
     this.craftsman.source(new SourceConfig.Builder().filter(new SourceFilter.Builder().includes("es_field_name").build()).build());
     return this;
   }

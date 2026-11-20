@@ -6,12 +6,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.NotImplementedException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.client.json.JsonData;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.Time;
@@ -24,14 +23,12 @@ import org.opensearch.client.opensearch.core.ScrollRequest;
 import org.opensearch.client.opensearch.core.ScrollResponse;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.opensearch.core.search.Hit;
-import org.opensearch.client.opensearch.core.search.TotalHits;
 import gov.nasa.pds.registry.common.Response;
 import gov.nasa.pds.registry.common.es.dao.dd.LddInfo;
 import gov.nasa.pds.registry.common.es.dao.dd.LddVersions;
 
 @SuppressWarnings("unchecked") // JSON heterogenous structures requires raw casting
 class SearchRespWrap implements Response.Search {
-  private static final Logger log = LogManager.getLogger(SearchRespWrap.class);
   final private OpenSearchClient client;
   final private SearchResponse<Object> parent;
   SearchRespWrap(OpenSearchClient client, SearchResponse<Object> parent) {
@@ -46,14 +43,9 @@ class SearchRespWrap implements Response.Search {
   }
   @Override
   public Set<String> fields() throws UnsupportedOperationException, IOException {
-    Set<String> results = new HashSet<String>();
-    List<Hit<Object>> hits = this.parent.hits().hits();
-    TotalHits total = this.parent.hits().total();
-    if (total != null && total.value() > hits.size()) {
-      log.warn("Field list is incomplete: received " + hits.size() + " of " + total.value()
-          + " fields. Values for the missing fields will not be normalized.");
-    }
-    for (Hit<Object> hit : hits) {
+    // Hit order is kept so a caller paging with search_after can take the last name as its cursor.
+    Set<String> results = new LinkedHashSet<String>();
+    for (Hit<Object> hit : this.parent.hits().hits()) {
       for (String value : ((Map<String,String>)hit.source()).values()) {
         results.add(value);
       }

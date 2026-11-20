@@ -2,6 +2,7 @@ package gov.nasa.pds.registry.common.es.dao.dd;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -18,6 +19,11 @@ import gov.nasa.pds.registry.common.util.Tuple;
  * @author karpenko
  */
 public class DataDictionaryDao {
+  /**
+   * Page size for listing field names. Pages are fetched with search_after, so the total is not
+   * limited by the max_result_window of the index; a page only has to fit inside it.
+   */
+  static final int LIST_FIELDS_PAGE_SIZE = 1000;
   private RestClient client;
   private String indexName;
 
@@ -99,9 +105,23 @@ public class DataDictionaryDao {
    */
   public Set<String> getFieldNamesByEsType(String esType)
       throws UnsupportedOperationException, IOException {
-    Request.Search req =
-        client.createSearchRequest().buildListFields(esType).setIndex(this.indexName + "-dd");
-    return client.performRequest(req).fields();
+    Set<String> names = new LinkedHashSet<String>();
+    String searchAfter = null;
+    while (true) {
+      Request.Search req = client.createSearchRequest()
+          .buildListFields(esType, LIST_FIELDS_PAGE_SIZE, searchAfter).setIndex(this.indexName + "-dd");
+      Set<String> page = client.performRequest(req).fields();
+      String last = null;
+      for (String name : page) {
+        names.add(name);
+        last = name;
+      }
+      // A short page is the last one. An empty page, or one that does not advance, also ends the loop.
+      if (page.size() < LIST_FIELDS_PAGE_SIZE || last == null || last.equals(searchAfter)) {
+        return names;
+      }
+      searchAfter = last;
+    }
   }
 
 

@@ -24,6 +24,11 @@ class SearchImpl implements Search {
     return this;
   }
   @Override
+  public Search buildListFields(String dataType, int size, String searchAfter) {
+    this.json = JsonHelper.buildListFieldsRequest(dataType, size, searchAfter);
+    return this;
+  }
+  @Override
   public Search buildListLdds(String namespace) {
     this.json = JsonHelper.buildListLddsRequest(namespace);
     return this;

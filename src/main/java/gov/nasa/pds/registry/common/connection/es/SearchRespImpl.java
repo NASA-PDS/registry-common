@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,7 +48,7 @@ class SearchRespImpl implements Response.Search {
       implements SearchResponseParser.Callback {
     public Set<String> list;
     public ListFieldsParser() {
-      list = new HashSet<>(200);
+      list = new LinkedHashSet<>(200); // hit order, so a pager can use the last name as its cursor
     }
     @Override
     public void onRecord(String id, Object rec) {
