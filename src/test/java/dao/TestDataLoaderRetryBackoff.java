@@ -30,6 +30,7 @@ public class TestDataLoaderRetryBackoff {
   private static final String OCU = "blocked by: [maximum OCU capacity reached]";
   private static final String KEY1 = "{\"create\":{\"_id\":\"urn:test:one::1.0\"}}";
   private static final String KEY2 = "{\"create\":{\"_id\":\"urn:test:two::1.0\"}}";
+  private static final String KEY3 = "{\"create\":{\"_id\":\"urn:test:three::1.0\"}}";
 
   private static Response.Bulk.Item item(String id, boolean error, int status, String reason) {
     return new Response.Bulk.Item() {
@@ -235,5 +236,23 @@ public class TestDataLoaderRetryBackoff {
     assertEquals(Arrays.asList(100L, 200L, 400L, 800L, 1600L, 3200L, 6400L, 12800L), delays,
         "each of the 8 retries should use the next backoff delay");
     assertEquals(9, cluster.calls, "1 initial attempt + 8 retries");
+  }
+
+  @Test
+  void batchSplitIntoSeveralQueues_countsEachQueueOnce() throws Exception {
+    // One 16M-character document body, shared so the test does not allocate it twice. Two of them
+    // pass the 30 MB queue threshold, so KEY1+KEY2 go in the first bulk request and KEY3 in a second.
+    String big = new String(new char[16 * 1024 * 1024]).replace('\0', 'x');
+    FakeCluster cluster = new FakeCluster(
+        bulk(true, item("urn:test:one::1.0", false, 201, null),
+            item("urn:test:two::1.0", true, 400, "mapper_parsing_exception")),
+        bulk(false));
+    Set<String> errors = new HashSet<>();
+
+    int loaded = loader(cluster).loadBatch(Arrays.asList(KEY1, big, KEY2, big, KEY3, "{}"), errors);
+
+    assertEquals(2, cluster.calls, "the batch must have been split into two queues");
+    assertEquals(2, loaded, "3 documents with 1 failure: each queue counts only its own documents");
+    assertEquals(new HashSet<>(Arrays.asList("urn:test:two::1.0")), errors);
   }
 }

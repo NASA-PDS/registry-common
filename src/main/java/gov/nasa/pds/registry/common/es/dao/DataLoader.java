@@ -276,7 +276,6 @@ public class DataLoader {
       throw new Exception("Data list size should be an even number.");
 
     try {
-      int failedCount = 0;
       int loadedCount = 0;
       int queued = 0;
       LinkedHashMap<String, String> queue = new LinkedHashMap<String, String>();
@@ -284,18 +283,12 @@ public class DataLoader {
         queued += data.get(index).length() + data.get(index + 1).length();
         queue.put(data.get(index), data.get(++index));
         if (queued > SIZE_THRESHOLD) {
-          failedCount += emptyQueue(queue, errorLidvids);
-          // Calculate number of successfully saved records
-          // NOTE: data list has two lines per record (primary key + data)
-          loadedCount += data.size() / 2 - failedCount;
+          loadedCount += flushQueue(queue, errorLidvids);
           queued = 0;
         }
       }
       if (queued > 0) {
-        failedCount += emptyQueue(queue, errorLidvids);
-        // Calculate number of successfully saved records
-        // NOTE: data list has two lines per record (primary key + data)
-        loadedCount += data.size() / 2 - failedCount;
+        loadedCount += flushQueue(queue, errorLidvids);
       }
       return loadedCount;
     } catch (UnknownHostException ex) {
@@ -322,6 +315,16 @@ public class DataLoader {
    */
   protected boolean pauseBeforeRetry(long delayMillis) {
     return Backoff.pause(delayMillis);
+  }
+
+  /**
+   * Send one queue of records and return how many of them were loaded: the records in this queue
+   * less the failures in this queue, so a batch split into several queues is never over-counted.
+   */
+  private int flushQueue(LinkedHashMap<String, String> queue, Set<String> errorLidvids)
+      throws Exception {
+    int records = queue.size();
+    return records - emptyQueue(queue, errorLidvids);
   }
 
   private int emptyQueue(LinkedHashMap<String, String> todo, Set<String> errorLidvids)

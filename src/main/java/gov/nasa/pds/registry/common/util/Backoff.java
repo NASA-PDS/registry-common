@@ -10,8 +10,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@code [delay * (1 - jitter), delay]} and never exceeds {@code max}.
  */
 public final class Backoff {
-  private static final int MAX_SHIFT = 30;
-
   private final long baseMillis;
   private final long maxMillis;
   private final double jitter;
@@ -44,10 +42,15 @@ public final class Backoff {
    * @param random value in [0, 1) selecting how much jitter to subtract
    */
   public long delayMillis(int attempt, double random) {
-    int shift = Math.max(0, Math.min(attempt, MAX_SHIFT));
-    long delay = baseMillis << shift;
-    // The shift overflows a long only if baseMillis is huge; treat overflow as "at the cap".
-    if (delay < baseMillis || delay > maxMillis) delay = maxMillis;
+    int shift = Math.max(0, attempt);
+    // base * 2^shift fits in a positive long only while the shift leaves the sign bit clear,
+    // that is while shift < numberOfLeadingZeros(base). A larger shift is past any valid max.
+    long delay;
+    if (shift >= Long.numberOfLeadingZeros(baseMillis)) {
+      delay = maxMillis;
+    } else {
+      delay = Math.min(baseMillis << shift, maxMillis);
+    }
     return delay - (long) (delay * jitter * random);
   }
 

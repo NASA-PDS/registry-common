@@ -34,6 +34,27 @@ public class TestBackoff {
   }
 
   @Test
+  void delay_keepsDoublingPast2To30_whenTheCapAllowsIt() {
+    Backoff backoff = new Backoff(1L, Long.MAX_VALUE, 0.0);
+
+    assertEquals(1L << 30, backoff.delayMillis(30));
+    assertEquals(1L << 31, backoff.delayMillis(31));
+    assertEquals(1L << 62, backoff.delayMillis(62));
+    assertEquals(Long.MAX_VALUE, backoff.delayMillis(63), "2^63 overflows, so it is the cap");
+    assertEquals(Long.MAX_VALUE, backoff.delayMillis(Integer.MAX_VALUE));
+  }
+
+  @Test
+  void delay_shiftThatWouldDropHighBits_isTheCap() {
+    // 17 << 60 loses the high bit but stays positive; it must not be mistaken for a valid delay.
+    Backoff backoff = new Backoff(17L, Long.MAX_VALUE, 0.0);
+
+    assertEquals(17L << 58, backoff.delayMillis(58));
+    assertEquals(Long.MAX_VALUE, backoff.delayMillis(59));
+    assertEquals(Long.MAX_VALUE, backoff.delayMillis(60));
+  }
+
+  @Test
   void delay_negativeAttempt_treatedAsFirst() {
     Backoff backoff = new Backoff(1_000L, 30_000L, 0.0);
 
