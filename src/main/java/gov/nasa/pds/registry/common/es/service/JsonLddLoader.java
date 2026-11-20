@@ -147,45 +147,63 @@ public class JsonLddLoader {
    */
   boolean loadOnly(File lddFile, String lddFileName, String namespace, Instant lastDate)
       throws Exception {
-    // Create and load temporary data file into Elasticsearch
     File tempEsDataFile = File.createTempFile("es-", ".json");
     log.debug("Creating temporary ES data file " + tempEsDataFile.getAbsolutePath());
 
     try {
-      String firstFieldId = createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
-      if (firstFieldId == null) {
+      LddDataFileResult result = createEsDataFile(lddFile, lddFileName, namespace, tempEsDataFile, lastDate);
+      if (result == null) {
         // createEsDataFile logged a warning; nothing to load.
         return false;
       }
+      // Load field documents first. If loadFile throws, the sentinel is never written,
+      // preventing an orphaned LDD_Info record in the index.
       loader.loadFile(tempEsDataFile);
 
-      // Wait until the LDD_Info sentinel is visible via search (confirms bulk load completed).
+      // On AOSS, mget and search use different visibility paths. Wait until the last field
+      // document is reachable via mget — if the last one is visible, all preceding ones are too.
+      try {
+        SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
+            () -> dao.getDataTypes(Collections.singletonList(result.lastFieldId), true),
+            log, "field " + result.lastFieldId + " of namespace " + namespace + " via mget");
+      } catch (DataTypeNotFoundException e) {
+        log.warn("Field {} of namespace {} not visible via mget after {} seconds. Schema update may retry.",
+            result.lastFieldId, namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
+        return false;
+      }
+
+      // All fields confirmed visible — write the sentinel directly via a single-document bulk request.
+      dao.saveLddInfo(namespace, lddFileName, result.imVersion, result.lddVersion, result.lddDate);
+
+      // Wait until the sentinel is visible via search so future getLddInfo() calls
+      // recognise this namespace as already loaded.
       LddVersions info = SearchIndexWait.untilReady(SearchIndexWait.DEFAULT_WAIT_SECONDS,
           () -> dao.getLddInfoNoCache(namespace), v -> !v.isEmpty(),
           log, "LDD sentinel for namespace " + namespace);
       if (info.isEmpty()) {
-        log.warn("LDD {} not indexed after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.",
+        log.warn("LDD {} sentinel not visible after {} seconds. It may be indexed later, but there may be a delay in loading other LDDs for this namespace.",
             namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
-        return false;
-      }
-      log.debug("LDD {} indexed with date {}. Waiting for mget visibility.", namespace, info.lastDate);
-
-      // On AOSS, mget and search use different visibility paths. Wait until the first field
-      // document is also reachable via mget so that getDataTypes() calls succeed immediately.
-      try {
-        SearchIndexWait.untilVisible(SearchIndexWait.DEFAULT_WAIT_SECONDS,
-            () -> dao.getDataTypes(Collections.singletonList(firstFieldId), true),
-            log, "field " + firstFieldId + " of namespace " + namespace + " via mget");
-      } catch (DataTypeNotFoundException e) {
-        log.warn("Field {} of namespace {} not visible via mget after {} seconds. Schema update may retry.",
-            firstFieldId, namespace, SearchIndexWait.DEFAULT_WAIT_SECONDS);
         return false;
       }
       log.debug("Visibility of namespace {} fully validated.", namespace);
       return true;
     } finally {
-      // Delete temporary file
       tempEsDataFile.delete();
+    }
+  }
+
+
+  private static class LddDataFileResult {
+    final String lastFieldId;
+    final String imVersion;
+    final String lddVersion;
+    final String lddDate;
+
+    LddDataFileResult(String lastFieldId, String imVersion, String lddVersion, String lddDate) {
+      this.lastFieldId = lastFieldId;
+      this.imVersion = imVersion;
+      this.lddVersion = lddVersion;
+      this.lddDate = lddDate;
     }
   }
 
@@ -194,7 +212,7 @@ public class JsonLddLoader {
     private final LddEsJsonWriter writer;
     private final String namespace;
     private final Map<String, DDAttribute> ddAttrCache;
-    private String firstFieldId;
+    private String lastFieldId;
 
     public CaaCallback(LddEsJsonWriter writer, String namespace, Map<String, DDAttribute> ddAttrCache) {
       this.writer = writer;
@@ -205,16 +223,16 @@ public class JsonLddLoader {
     @Override
     public void onAssociation(String classNs, String className, String attrId) throws Exception {
       writer.writeFieldDefinition(classNs, className, attrId);
-      if (firstFieldId == null && namespace.equals(classNs)) {
+      if (namespace.equals(classNs)) {
         DDAttribute attr = ddAttrCache.get(attrId);
         if (attr != null) {
-          firstFieldId = classNs + ":" + className + "/" + attr.attrNs + ":" + attr.attrName;
+          lastFieldId = classNs + ":" + className + "/" + attr.attrNs + ":" + attr.attrName;
         }
       }
     }
 
-    public String getFirstFieldId() {
-      return firstFieldId;
+    public String getLastFieldId() {
+      return lastFieldId;
     }
   }
 
@@ -227,8 +245,8 @@ public class JsonLddLoader {
    * @param tempEsFile Write to this Elasticsearch file
    * @throws Exception an exception
    */
-  private String createEsDataFile(File lddFile, String lddFileName, String namespace, File tempEsFile,
-      Instant lastDate) throws Exception {
+  private LddDataFileResult createEsDataFile(File lddFile, String lddFileName, String namespace,
+      File tempEsFile, Instant lastDate) throws Exception {
     // Parse and cache LDD attributes
     Map<String, DDAttribute> ddAttrCache = new TreeMap<>();
     AttributeDictionaryParser.Callback acb = (attr) -> {
@@ -267,8 +285,8 @@ public class JsonLddLoader {
       ClassAttrAssociationParser caaParser = new ClassAttrAssociationParser(lddFile, ccb);
       caaParser.parse();
 
-      String firstFieldId = ccb.getFirstFieldId();
-      if (firstFieldId == null) {
+      String lastFieldId = ccb.getLastFieldId();
+      if (lastFieldId == null) {
         // Zero fields were written for this namespace — do not write the LDD_Info sentinel.
         // A sentinel with no field documents would cause all future runs to skip this LDD
         // (believing it already loaded), leaving the namespace permanently empty in -dd.
@@ -279,11 +297,8 @@ public class JsonLddLoader {
         return null;
       }
 
-      // Write data dictionary version and date
-      writer.writeLddInfo(namespace, lddFileName, attrParser.getImVersion(),
+      return new LddDataFileResult(lastFieldId, attrParser.getImVersion(),
           attrParser.getLddVersion(), attrParser.getLddDate());
-
-      return firstFieldId;
     } finally {
       if (writer != null) writer.close();
     }
