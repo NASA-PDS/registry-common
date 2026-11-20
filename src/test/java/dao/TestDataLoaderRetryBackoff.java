@@ -215,4 +215,25 @@ public class TestDataLoaderRetryBackoff {
     assertEquals("Read timed out", thrown.getMessage());
     assertEquals(6, cluster.calls, "1 initial attempt + 5 retries");
   }
+
+  @Test
+  void ioError_retryDelaysKeepGrowing_whenRetryBudgetExceedsDefault() throws Exception {
+    FakeCluster cluster = new FakeCluster(new IOException("Read timed out"));
+    List<Long> delays = new ArrayList<>();
+    DataLoader loader = new DataLoader(cluster.factory()) {
+      @Override
+      protected boolean pauseBeforeRetry(long delayMillis) {
+        delays.add(delayMillis);
+        return true;
+      }
+    };
+    loader.setRetryBackoff(new Backoff(100L, 1_000_000L, 0.0));
+
+    assertThrows(IOException.class,
+        () -> loader.loadBatch(Arrays.asList(KEY1, "{}"), new HashSet<>(), 8));
+
+    assertEquals(Arrays.asList(100L, 200L, 400L, 800L, 1600L, 3200L, 6400L, 12800L), delays,
+        "each of the 8 retries should use the next backoff delay");
+    assertEquals(9, cluster.calls, "1 initial attempt + 8 retries");
+  }
 }

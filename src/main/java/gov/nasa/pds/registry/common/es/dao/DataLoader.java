@@ -254,6 +254,22 @@ public class DataLoader {
    * @throws Exception an exception
    */
   public int loadBatch(List<String> data, Set<String> errorLidvids, int retries) throws Exception {
+    return loadBatch(data, errorLidvids, retries, 0);
+  }
+
+  /**
+   * Load data into Elasticsearch, retrying with exponential backoff.
+   *
+   * @param data NJSON data. (2 lines per record)
+   * @param errorLidvids output parameter. If not null, add failed LIDVIDs to this set.
+   * @param retries number of retries left if an exception is thrown.
+   * @param attempt number of retries already made; selects the next backoff delay, so delays keep
+   *        growing whatever the retry budget.
+   * @return Number of loaded documents
+   * @throws Exception an exception
+   */
+  private int loadBatch(List<String> data, Set<String> errorLidvids, int retries, int attempt)
+      throws Exception {
     if (data == null || data.isEmpty())
       return 0;
     if (data.size() % 2 != 0)
@@ -287,15 +303,25 @@ public class DataLoader {
     } catch (IOException ex) {
       if (retries > 0) {
         String msg = ex.getMessage();
-        long delay = retryBackoff.delayMillis(Math.max(0, defaultRequestRetries - retries));
+        long delay = retryBackoff.delayMillis(attempt);
         log.warn("DataLoader.loadBatch() request failed due to \"" + msg + "\" (" + retries
             + " retries remaining), retrying in " + delay + " ms");
-        if (!Backoff.pause(delay))
+        if (!pauseBeforeRetry(delay))
           throw ex;
-        return loadBatch(data, errorLidvids, retries - 1);
+        return loadBatch(data, errorLidvids, retries - 1, attempt + 1);
       }
       throw ex;
     }
+  }
+
+  /**
+   * Wait before retrying a failed request.
+   *
+   * @param delayMillis how long to wait
+   * @return false if the wait was interrupted
+   */
+  protected boolean pauseBeforeRetry(long delayMillis) {
+    return Backoff.pause(delayMillis);
   }
 
   private int emptyQueue(LinkedHashMap<String, String> todo, Set<String> errorLidvids)
